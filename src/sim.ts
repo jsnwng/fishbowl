@@ -188,6 +188,7 @@ export class Sim {
       }
 
       tail[i] += (1 + burst[i] * 3) / this.tailRate[i];
+      // TODO: the fish should swim away calmly as it swims away. ask claude later to make the decay linear
       if (burst[i] > 0) {
         burst[i] *= BURST_DECAY;
         if (burst[i] < 0.01) burst[i] = 0;
