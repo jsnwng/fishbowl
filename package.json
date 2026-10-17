@@ -1,0 +1,23 @@
+{
+  "name": "fishbowl",
+  "private": true,
+  "version": "0.1.0",
+  "description": "An 8-bit aquarium for benchmarking 2D web renderers.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build && node scripts/bundle-sizes.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "konva": "^9.3.22",
+    "p5": "^1.11.13",
+    "pixi.js": "^8.22.0",
+    "two.js": "^0.8.24"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^6.4.4"
+  }
+}
