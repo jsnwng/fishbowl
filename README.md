@@ -1,12 +1,12 @@
 # fishbowl
 
-an 8-bit aquarium for benchmarking 2d web renderers.
+An 8-bit aquarium for benchmarking 2d web renderers.
 
 ![pixel-art fish swimming over seaweed, rocks and a treasure chest](docs/bowl.png)
 
 the same seeded fish swim through the same frames under six renderers. add fish until it lags, run timed tests, compare the numbers.
 
-## renderers
+## Renderers
 
 | renderer | how it draws the bowl |
 |---|---|
@@ -19,7 +19,7 @@ the same seeded fish swim through the same frames under six renderers. add fish 
 
 each one is a small adapter behind the same interface (`init`, `setCount`, `update`, `render`, `destroy`), loaded with a dynamic import so it's its own bundle chunk. the bench drives every renderer from one `requestAnimationFrame` loop, never the library's own ticker.
 
-## benchmark
+## Benchmark
 
 - **run 10s**: 2s warmup, then 10s measured at the current fish count.
 - **ramp**: start at 500 fish, ×1.25 every 2s, stop when p95 frame time passes 18ms. reports the most fish that held.
@@ -33,11 +33,11 @@ kept fair on purpose:
 - fish flee the cursor in free play, but live input is switched off during runs.
 - the dev server sends cross-origin isolation headers, so `performance.now()` resolves to ~5µs instead of 100µs.
 
-## the art
+## The Art
 
 no image files. the fish are ascii pixel maps in [`src/sprites.ts`](src/sprites.ts), five species from three hand-drawn shapes plus palette swaps. tail-wag frames and left-facing versions are generated, then everything is packed into one sprite atlas all six renderers share. the scenery in [`src/scenery.ts`](src/scenery.ts) is painted in code too.
 
-## run it
+## Run it
 
 ```bash
 npm install
@@ -53,7 +53,7 @@ npm run preview
 
 then: one tab, devtools closed, laptop plugged in.
 
-## layout
+## Layout
 
 ```
 src/
