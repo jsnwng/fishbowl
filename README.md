@@ -2,6 +2,8 @@
 
 An 8-bit aquarium for benchmarking 2D web renderers.
 
+**Live demo: [fishbowl-inky.vercel.app](https://fishbowl-inky.vercel.app/)**
+
 ![Pixel-art fish swimming over seaweed, rocks and a treasure chest](docs/bowl.png)
 
 The same seeded fish swim through the same frames under six different renderers. Add fish until it lags, run timed tests, and compare the numbers.
@@ -31,7 +33,7 @@ The comparison is kept fair on purpose:
 
 - The sim advances one fixed tick per frame from a seeded RNG, so every renderer is handed identical frames.
 - Fish flee the cursor in free play, but live input is switched off during benchmark runs.
-- The dev and preview servers send cross-origin isolation headers, so `performance.now()` resolves to about 5 µs instead of 100 µs.
+- The dev server, the preview server and the live site all send cross-origin isolation headers, so `performance.now()` resolves to about 5 µs instead of 100 µs.
 
 ## The art
 
