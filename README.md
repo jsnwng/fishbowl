@@ -2,7 +2,7 @@
 
 An 8-bit aquarium for benchmarking 2D web renderers.
 
-**Live demo: [fishbowl-inky.vercel.app](https://fishbowl-inky.vercel.app/)**
+**Live demo: [fishbowl.jsnwng.dev](https://fishbowl.jsnwng.dev/)**
 
 ![Pixel-art fish swimming over seaweed, rocks and a treasure chest](docs/bowl.png)
 
