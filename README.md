@@ -37,7 +37,7 @@ The comparison is kept fair on purpose:
 
 There are no image files. The fish are ASCII pixel maps in [`src/sprites.ts`](src/sprites.ts): five species built from three hand-drawn shapes plus palette swaps. The tail-wag frames and left-facing versions are generated, and everything is packed into a single sprite atlas that all six renderers share. The scenery in [`src/scenery.ts`](src/scenery.ts) is painted in code as well.
 
-## Running it
+## Run it
 
 ```bash
 npm install
@@ -53,7 +53,7 @@ npm run preview
 
 Then keep a single tab open, close DevTools, and plug your laptop in.
 
-## Project layout
+## Layout
 
 ```
 src/
