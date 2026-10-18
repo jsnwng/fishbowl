@@ -35,6 +35,42 @@ The comparison is kept fair on purpose:
 - Fish flee the cursor in free play, but live input is switched off during benchmark runs.
 - The dev server, the preview server and the live site all send cross-origin isolation headers, so `performance.now()` resolves to about 5 µs instead of 100 µs.
 
+## The fisherman
+
+[`/fisherman/`](https://fishbowl.jsnwng.dev/fisherman/) is a fishing game built on the same bowl, drawn with PixiJS. You get 2 minutes to catch as many points as you can. Rare fish are worth more, and they're faster or more skittish.
+
+The rules make sure casting once and waiting doesn't pay:
+
+- A splash scares nearby fish, so you have to cast where a fish is going, not where it is.
+- A nibble gives you about 0.4 seconds to reel. Miss it and the fish takes the bait.
+- Bait goes stale after a few seconds, so you have to recast.
+- Fish change direction and depth now and then, so leading one is a guess, not a calculation.
+
+Anything that implements the `Hunter` interface in [`src/game/types.ts`](src/game/types.ts) can play: it gets an observation every tick and returns an action. Right now that's you, a hand-written heuristic, a cast-and-wait baseline and a random baseline. The game itself is headless and deterministic: the same seed and the same actions always give the same run. So `npm run score` can play every hunter over many seeds in a few seconds:
+
+```
+hunter          catches        points
+heuristic        14.1 ± 3.0    37.2 ± 9.7
+cast and wait     6.7 ± 2.6    12.6 ± 6.4
+random            0.5 ± 0.5     1.0 ± 1.5
+```
+
+All the numbers that tune the game are in [`src/game/rules.ts`](src/game/rules.ts).
+
+### How the heuristic works
+
+A heuristic is a rule of thumb: a shortcut a person writes down that's usually good enough. Nothing is learned and no data is involved, it's just judgment turned into if-statements. The fisherman's heuristic in [`src/game/hunters/heuristic.ts`](src/game/hunters/heuristic.ts) comes down to five rules:
+
+1. When the line is in, pick the calm fish worth the most points per second of effort.
+2. Cast where that fish will be, not where it is, plus a little extra so the splash just misses it.
+3. When something bites, reel immediately.
+4. When the bait is mostly stale, reel in and recast.
+5. When nothing has come near the hook for a while, reel in and try somewhere else.
+
+It's strong because it never hesitates and its aim is decent math. It can be beaten because it only knows what someone thought to write down. It assumes fish keep swimming straight, and they don't always. The thresholds in it are educated guesses, not proven best values.
+
+A trained model will work the same way, with what it sees going in and an action coming out, but it works out its own rules from thousands of games instead of taking them from a person. It starts by copying the heuristic, then tries to beat it.
+
 ## The art
 
 There are no image files. The fish are ASCII pixel maps in [`src/sprites.ts`](src/sprites.ts): five species built from three hand-drawn shapes plus palette swaps. The tail-wag frames and left-facing versions are generated, and everything is packed into a single sprite atlas that all six renderers share. The scenery in [`src/scenery.ts`](src/scenery.ts) is painted in code as well.
@@ -66,8 +102,14 @@ src/
   runner.ts     render loop, renderer switching, run and ramp
   metrics.ts    frame stats, percentiles, heap sampling
   main.ts       page wiring
+  game/         the fisherman: headless game, rules, hunters, PixiJS view
+fisherman/
+  index.html    the fisherman page
 scripts/
   bundle-sizes.mjs   gzip size per renderer, from the Vite manifest
+  score.ts           plays every hunter headless over many seeds (npm run score)
 ```
+
+The fisherman page is built separately (`vite build --mode fisherman`) so it doesn't share chunks with the benchmark and change its bundle sizes.
 
 Built with Vite and TypeScript.

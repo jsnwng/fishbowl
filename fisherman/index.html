@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>fishbowl · fisherman</title>
+  </head>
+  <body>
+    <main class="col">
+      <h1 class="title">fishbowl + fisherman</h1>
+      <p class="status" id="status">loading…</p>
+
+      <div class="bowl" id="bowl"></div>
+
+      <!-- boxed = a choice, filled = an action, plain text = secondary -->
+      <section class="group bowl-controls" aria-label="fisherman">
+        <div class="picker-head">
+          <span class="picker-title" id="hunter-title">who's fishing</span>
+          <button class="info" id="hunter-info-btn" type="button" aria-expanded="true" aria-controls="hunter-info" title="who are these?">i</button>
+        </div>
+        <div id="hunter" aria-labelledby="hunter-title"></div>
+        <div class="spark-info small hunter-info" id="hunter-info"></div>
+        <div class="bench-buttons">
+          <button type="button" class="btn primary" id="start-btn" data-act="start">start</button>
+          <button type="button" class="btn secondary" data-act="reset">reset</button>
+        </div>
+        <p class="row" id="speeds">
+          <a href="#" data-speed="1">1×</a>
+          <a href="#" data-speed="4">4×</a>
+          <a href="#" data-speed="16">16×</a>
+          <a href="#" data-act="seed">next seed</a>
+        </p>
+        <p class="about small" id="about">
+          2 minutes to catch what you can. click to cast, click or space to reel.
+          a splash scares fish, so cast where they're going. reel during the nibble or the fish takes the bait.
+          bait goes stale, so recast now and then.
+        </p>
+        <p class="about small run-log" id="log"></p>
+      </section>
+
+      <!-- what this is: set apart under a divider, like the bench section on the main page -->
+      <section class="group bench" aria-labelledby="what-title">
+        <h2 class="bench-title" id="what-title">what's going on</h2>
+        <div class="about small explain">
+          <p>
+            the question: how could a browser game hand its decisions to a model running on
+            the player's own machine, and what would that cost? the fisherman is the test.
+          </p>
+          <p>
+            anything that fishes is a hunter. every tick it sees the bowl (where the fish are,
+            what they're worth, the hook, the bait) and answers cast, reel or wait. right now
+            there's a hand-written heuristic, you, and two baselines: one that casts in the same
+            spot every time and waits, and one that acts at random.
+          </p>
+          <p>
+            the rules are there so waiting around doesn't pay. splashes scare fish, a nibble only
+            lasts about 0.4s, and bait goes stale. fish also change direction and depth now and
+            then, so leading one is a good guess, not a sure thing. over 20 seeds the heuristic
+            averages about 14 catches, cast and wait about 7, random under 1.
+          </p>
+          <p>
+            the game itself is headless and seeded. the same seed and the same moves always give
+            the same run, so every hunter faces the same fish. next up: a small model trained on
+            this game, then language models running in the browser, scored on catches and on
+            what they cost per frame.
+          </p>
+        </div>
+        <p class="row small"><a href="../">&lt; renderer benchmark</a></p>
+      </section>
+    </main>
+    <script type="module" src="/src/game/main.ts"></script>
+  </body>
+</html>

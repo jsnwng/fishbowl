@@ -318,3 +318,97 @@ a:hover {
   text-align: center;
   line-height: 18px;
 }
+
+/* fisherman page */
+
+/* pick who fishes: a row of fishermen, the chosen one boxed like a select */
+.picker-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.picker-title {
+  font-size: 12px;
+  font-weight: bold;
+}
+.hunter-info {
+  max-width: 520px;
+  margin-top: 0;
+}
+.hunter-info b {
+  color: var(--fg);
+}
+.picker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 64px;
+  padding: 8px 10px 6px;
+  border: 1px solid transparent;
+  color: var(--dim);
+  font: bold 12px 'Courier New', Courier, monospace;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pick:hover {
+  color: var(--fg);
+}
+.pick:has(input:checked) {
+  border-color: #666;
+  color: var(--fg);
+}
+.pick:has(input:checked):hover {
+  border-color: #999;
+}
+.pick:has(input:focus-visible) {
+  outline: 1px solid var(--aqua);
+  outline-offset: 2px;
+}
+/* the radio does the work; the fisherman is what you see */
+.pick input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.pick-sprite {
+  width: 33px;
+  height: 33px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+@media (max-width: 560px) {
+  .picker {
+    gap: 0;
+  }
+  .pick {
+    min-width: 0;
+    padding: 8px 6px 6px;
+  }
+}
+
+.row a.on {
+  color: var(--fg);
+}
+.run-log {
+  color: var(--fg);
+  white-space: pre-line;
+}
+.run-log:empty {
+  display: none;
+}
+.fisherman-link {
+  margin-top: 32px;
+}
+.explain p {
+  margin: 0 0 12px;
+}
+.explain + .row {
+  margin-top: 4px;
+}

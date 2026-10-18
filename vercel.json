@@ -1,4 +1,5 @@
 {
+  "redirects": [{ "source": "/fisherman", "destination": "/fisherman/", "permanent": true }],
   "headers": [
     {
       "source": "/(.*)",
