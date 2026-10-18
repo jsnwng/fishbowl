@@ -3,11 +3,17 @@
 // a table. Use it to tune src/game/rules.ts: the ordering should be heuristic > cast and
 // wait > random, with clear gaps. Same seeds in, same numbers out.
 //
+// Runs go through Match in turn-based mode, the same decision points as the page. Slow
+// hunters really wait, so they're skipped unless you pass --all.
+//
 //   npm run score                 20 seeds
 //   npm run score -- --seeds 100
+//   npm run score -- --all        include slow hunters (minutes)
 import { Game } from '../src/game/game';
 import { HUNTERS } from '../src/game/hunters';
-import type { Hunter, RunStats } from '../src/game/types';
+import { Match } from '../src/game/match';
+import { decisionStats } from '../src/game/results';
+import type { RunStats } from '../src/game/types';
 
 const args = process.argv.slice(2);
 const flag = (name: string, fallback: number) => {
@@ -15,14 +21,7 @@ const flag = (name: string, fallback: number) => {
   return i >= 0 ? Number(args[i + 1]) : fallback;
 };
 const seeds = flag('seeds', 20);
-
-function play(hunter: Hunter, seed: number): RunStats {
-  const game = new Game(seed);
-  hunter.reset(seed);
-  game.start();
-  while (!game.done) game.step(hunter.decide(game.observe()));
-  return game.stats;
-}
+const all = args.includes('--all');
 
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const sd = (xs: number[]) => {
@@ -31,14 +30,23 @@ const sd = (xs: number[]) => {
 };
 const fmt = (xs: number[]) => `${mean(xs).toFixed(1).padStart(5)} ± ${sd(xs).toFixed(1).padEnd(4)}`;
 
-console.log(`${seeds} seeds per hunter\n`);
-console.log(['hunter'.padEnd(14), 'catches'.padEnd(13), 'points'.padEnd(13), 'casts', 'empty', 'stolen', 'ms/run'].join('  '));
+console.log(`${seeds} seeds per hunter, turn based\n`);
+console.log(['hunter'.padEnd(14), 'catches'.padEnd(13), 'points'.padEnd(13), 'asks', 'casts', 'empty', 'stolen', 'think ms', 'ms/run'].join('  '));
 for (const entry of HUNTERS) {
-  if (entry.human) continue;
-  const hunter = entry.make();
+  if (entry.human || (entry.slow && !all)) continue;
+  const match = new Match(new Game(), entry.make());
+  match.mode = 'turns';
   const runs: RunStats[] = [];
+  const asks: number[] = [];
+  const think: number[] = [];
   const t0 = performance.now();
-  for (let s = 1; s <= seeds; s++) runs.push(play(hunter, s));
+  for (let s = 1; s <= seeds; s++) {
+    match.start(s);
+    await match.runToEnd();
+    runs.push({ ...match.game.stats });
+    asks.push(match.asks);
+    think.push(decisionStats(match.decisions).thinkP50);
+  }
   const ms = (performance.now() - t0) / seeds;
   const col = (k: keyof RunStats) => runs.map((r) => r[k]);
   console.log(
@@ -46,9 +54,11 @@ for (const entry of HUNTERS) {
       entry.id.padEnd(14),
       fmt(col('catches')),
       fmt(col('score')),
+      mean(asks).toFixed(0).padStart(4),
       mean(col('casts')).toFixed(0).padStart(5),
       mean(col('empties')).toFixed(0).padStart(5),
       mean(col('stolen')).toFixed(1).padStart(6),
+      mean(think).toFixed(4).padStart(8),
       ms.toFixed(1).padStart(6),
     ].join('  '),
   );

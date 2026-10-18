@@ -30,12 +30,29 @@
           <a href="#" data-speed="16">16×</a>
           <a href="#" data-act="seed">next seed</a>
         </p>
+        <p class="row" id="modes">
+          <a href="#" data-mode="realtime">real time</a>
+          <a href="#" data-mode="turns">turn based</a>
+        </p>
         <p class="about small" id="about">
           2 minutes to catch what you can. click to cast, click or space to reel.
           a splash scares fish, so cast where they're going. reel during the nibble or the fish takes the bait.
           bait goes stale, so recast now and then.
         </p>
-        <p class="about small run-log" id="log"></p>
+        <div class="results">
+          <table id="results"></table>
+          <p class="row small" id="replay-actions">
+            <a href="#" data-act="replay">replay last run</a>
+            <a href="#" data-act="export-replay">export replay</a>
+            <a href="#" data-act="load-replay">load replay</a>
+          </p>
+          <p class="row small">
+            <a href="#" data-act="export-json">export json</a>
+            <a href="#" data-act="export-csv">export csv</a>
+            <a href="#" data-act="clear">clear</a>
+          </p>
+          <input type="file" id="replay-file" accept="application/json,.json" hidden />
+        </div>
       </section>
 
       <!-- what this is: set apart under a divider, like the bench section on the main page -->
@@ -56,7 +73,7 @@
             the rules are there so waiting around doesn't pay. splashes scare fish, a nibble only
             lasts about 0.4s, and bait goes stale. fish also change direction and depth now and
             then, so leading one is a good guess, not a sure thing. over 20 seeds the heuristic
-            averages about 14 catches, cast and wait about 7, random under 1.
+            averages about 14 catches, cast and wait about 7, random about 1.
           </p>
           <p>
             the game itself is headless and seeded. the same seed and the same moves always give

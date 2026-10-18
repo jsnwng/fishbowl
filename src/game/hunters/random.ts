@@ -3,7 +3,7 @@ import { mulberry32 } from '../../rng';
 import { RULES, WATERLINE } from '../rules';
 import { WAIT, type Action, type Hunter, type Observation } from '../types';
 
-/** Casts anywhere, reels whenever. The floor every other hunter has to clear. */
+/** Casts anywhere, reels whenever (odds per ask). The floor every other hunter has to clear. */
 export class RandomHunter implements Hunter {
   id = 'random';
   private rng = mulberry32(0);
@@ -15,9 +15,9 @@ export class RandomHunter implements Hunter {
   decide(obs: Observation): Action {
     const r = this.rng;
     if (obs.line === 'idle') {
-      if (r() < 0.02) return { type: 'cast', x: r() * WIDTH, y: WATERLINE + 4 + r() * (RULES.maxY - WATERLINE) };
+      if (r() < 0.5) return { type: 'cast', x: r() * WIDTH, y: WATERLINE + 4 + r() * (RULES.maxY - WATERLINE) };
     } else if (obs.line === 'waiting' || obs.line === 'nibble') {
-      if (r() < 0.01) return { type: 'reel' };
+      if (r() < 0.25) return { type: 'reel' };
     }
     return WAIT;
   }

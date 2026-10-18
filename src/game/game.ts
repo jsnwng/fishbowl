@@ -1,7 +1,7 @@
 import { CELL_H, CELL_W, WIDTH } from '../adapters/types';
 import { mulberry32, rngFor } from '../rng';
 import { FLEE, ROD_X, ROD_Y, RULES, SPECIES_RULES, WATERLINE } from './rules';
-import type { Action, FishView, GameEvent, LineState, Observation, RunStats } from './types';
+import type { Action, AskReason, FishView, GameEvent, LineState, Observation, RunStats } from './types';
 
 const MAX_X = WIDTH - CELL_W;
 const TOTAL_WEIGHT = SPECIES_RULES.reduce((s, sp) => s + sp.weight, 0);
@@ -132,7 +132,7 @@ export class Game {
     return this.events;
   }
 
-  observe(): Observation {
+  observe(reason: AskReason = 'check'): Observation {
     const fish: FishView[] = [];
     for (const f of this.fish) {
       if (f.state !== 'swim' && f.state !== 'nibble') continue;
@@ -142,6 +142,7 @@ export class Game {
     const out = this.line === 'idle';
     return {
       tick: this.tick,
+      reason,
       ticksLeft: this.ticksLeft,
       score: this.stats.score,
       catches: this.stats.catches,

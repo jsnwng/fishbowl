@@ -46,16 +46,22 @@ The rules make sure casting once and waiting doesn't pay:
 - Bait goes stale after a few seconds, so you have to recast.
 - Fish change direction and depth now and then, so leading one is a guess, not a calculation.
 
-Anything that implements the `Hunter` interface in [`src/game/types.ts`](src/game/types.ts) can play: it gets an observation every tick and returns an action. Right now that's you, a hand-written heuristic, a cast-and-wait baseline and a random baseline. The game itself is headless and deterministic: the same seed and the same actions always give the same run. So `npm run score` can play every hunter over many seeds in a few seconds:
+Anything that implements the `Hunter` interface in [`src/game/types.ts`](src/game/types.ts) can play: it gets an observation and returns an action. Right now that's you, a hand-written heuristic, a cast-and-wait baseline, a random baseline, and `heuristic, 1s`, a test hunter that is the heuristic with every decision delayed by a second, standing in for a slow model.
+
+Hunters are asked at decision points, not every tick: whenever the line changes state, and every half second otherwise. That's about 200 asks per run, few enough for a language model to keep up, and the same chances for every hunter. A hunter can answer right away or return a promise. In **real time** the game keeps going while it thinks, so a late answer can miss its moment. In **turn based** the game waits, so only the quality of the decision counts.
+
+The game itself is headless and deterministic: the same seed and the same actions always give the same run. So `npm run score` can play every hunter over many seeds in a few seconds:
 
 ```
 hunter          catches        points
-heuristic        14.1 ± 3.0    37.2 ± 9.7
+heuristic        13.9 ± 3.3    37.1 ± 7.0
 cast and wait     6.7 ± 2.6    12.6 ± 6.4
-random            0.5 ± 0.5     1.0 ± 1.5
+random            1.4 ± 1.4     2.0 ± 2.3
 ```
 
 All the numbers that tune the game are in [`src/game/rules.ts`](src/game/rules.ts).
+
+The page keeps a results table of finished runs: catches and points, plus how many times the hunter was asked, its think time (p50 and p95), how late its answers landed (lag, in ticks), and frame time while it played. Any run can be replayed exactly, or exported as a small JSON file (a seed and a list of actions) and loaded back later.
 
 ### How the heuristic works
 

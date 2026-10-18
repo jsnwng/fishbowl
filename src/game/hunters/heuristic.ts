@@ -15,16 +15,16 @@ const LEAD_GAP = 4; // px past the splash radius, so the splash just misses
  */
 export class HeuristicHunter implements Hunter {
   id = 'heuristic';
-  private quiet = 0;
+  private lastNear = 0; // tick something last came near the hook
 
   reset() {
-    this.quiet = 0;
+    this.lastNear = 0;
   }
 
   decide(obs: Observation): Action {
     switch (obs.line) {
       case 'idle':
-        this.quiet = 0;
+        this.lastNear = obs.tick;
         return this.pickCast(obs) ?? WAIT;
       case 'nibble':
         return { type: 'reel' };
@@ -33,8 +33,8 @@ export class HeuristicHunter implements Hunter {
         const hook = obs.hook!;
         const reach = RULES.attractRadius * obs.freshness;
         const near = obs.fish.some((f) => !f.scared && Math.abs(f.x - hook.x) < reach && Math.abs(f.y - hook.y) < reach);
-        this.quiet = near ? 0 : this.quiet + 1;
-        return this.quiet > GIVE_UP_TICKS ? { type: 'reel' } : WAIT;
+        if (near) this.lastNear = obs.tick;
+        return obs.tick - this.lastNear > GIVE_UP_TICKS ? { type: 'reel' } : WAIT;
       }
       default:
         return WAIT;

@@ -14,6 +14,8 @@ export const TICKS_PER_SECOND = 60;
 export const RULES = {
   runTicks: 120 * TICKS_PER_SECOND, // a run is 2 minutes of sim time
   fish: 30,
+  // hunters are asked whenever the line changes state, and this often otherwise
+  askEvery: 30,
 
   // casting: the hook flies to (x, y). Far casts take longer.
   castBaseTicks: 20,

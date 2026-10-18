@@ -396,12 +396,13 @@ a:hover {
 .row a.on {
   color: var(--fg);
 }
-.run-log {
-  color: var(--fg);
-  white-space: pre-line;
+#replay-actions {
+  margin-top: 8px;
 }
-.run-log:empty {
-  display: none;
+.no-replay [data-act='replay'],
+.no-replay [data-act='export-replay'] {
+  pointer-events: none;
+  color: var(--faint);
 }
 .fisherman-link {
   margin-top: 32px;

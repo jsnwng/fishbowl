@@ -28,9 +28,16 @@ export interface FishView {
   scared: boolean;
 }
 
-/** Everything a hunter gets to see on a tick. */
+/**
+ * Why the hunter is being asked. Hunters are asked at decision points, not every tick:
+ * when the line changes state, and every RULES.askEvery ticks otherwise.
+ */
+export type AskReason = 'idle' | 'landed' | 'nibble' | 'check';
+
+/** Everything a hunter gets to see when it's asked. */
 export interface Observation {
   tick: number;
+  reason: AskReason;
   ticksLeft: number;
   score: number;
   catches: number;
@@ -48,10 +55,15 @@ export interface Observation {
 /** Anything that fishes: a person, fixed code, a trained policy, an LLM. */
 export interface Hunter {
   id: string;
+  /** Ask on every tick instead of only at decision points (people clicking, replays). */
+  everyTick?: boolean;
   /** Called before each run, so seeded hunters replay the same way. */
   reset(seed: number): void;
-  /** Called once per tick while the clock runs. */
-  decide(obs: Observation): Action;
+  /**
+   * Called at each decision point while the clock runs. A slow hunter can return a promise:
+   * in real time the game keeps going while it thinks, in turn based it waits.
+   */
+  decide(obs: Observation): Action | Promise<Action>;
 }
 
 export interface RunStats {
