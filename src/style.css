@@ -54,6 +54,19 @@ a:hover {
   line-height: 1;
 }
 
+.title a {
+  color: inherit;
+}
+
+/* the sections of the site, under the title: plain links, the current one white */
+.subnav {
+  margin-top: 10px;
+  font-size: 12px;
+}
+.subnav a.on {
+  color: var(--fg);
+}
+
 .status {
   margin: 14px 0 28px;
   font-size: 12px;
@@ -319,6 +332,68 @@ a:hover {
   line-height: 18px;
 }
 
+/* story page: one narrow, left-aligned column for reading */
+.story {
+  width: min(590px, 100% - 32px);
+  margin: 0 auto;
+  padding: 72px 0 96px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.story-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 72px;
+}
+.entry {
+  margin-bottom: 56px;
+}
+.entry h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: bold;
+}
+.entry time {
+  margin-left: 10px;
+  color: var(--dim);
+  font-weight: normal;
+}
+.entry p {
+  margin: 0 0 12px;
+}
+.entry figure {
+  margin: 20px 0;
+}
+.entry img {
+  display: block;
+  width: 100%;
+  height: auto;
+  outline: 1px solid var(--faint);
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.entry figcaption {
+  margin-top: 6px;
+  color: var(--dim);
+}
+.entry-link {
+  margin-top: 16px;
+}
+.story-table {
+  margin: 4px 0 16px;
+  border-collapse: collapse;
+}
+.story-table th {
+  color: var(--dim);
+  font-weight: normal;
+  text-align: left;
+  padding: 0 32px 4px 0;
+}
+.story-table td {
+  padding: 2px 32px 2px 0;
+}
+
 /* fisherman page */
 
 /* pick who fishes: a row of fishermen, the chosen one boxed like a select */
@@ -403,9 +478,6 @@ a:hover {
 .no-replay [data-act='export-replay'] {
   pointer-events: none;
   color: var(--faint);
-}
-.fisherman-link {
-  margin-top: 32px;
 }
 .explain p {
   margin: 0 0 12px;

@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build && vite build --mode fisherman && node scripts/bundle-sizes.mjs",
+    "build": "tsc --noEmit && vite build && vite build --mode players && vite build --mode story && node scripts/bundle-sizes.mjs",
     "preview": "vite preview",
     "score": "tsx scripts/score.ts"
   },

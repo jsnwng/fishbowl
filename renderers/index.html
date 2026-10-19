@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>fishbowl · renderers</title>
+  </head>
+  <body>
+    <main class="col">
+      <h1 class="title"><a href="../">fishbowl</a></h1>
+      <nav class="subnav" data-page="renderers" data-root="../" aria-label="sections"></nav>
+      <p class="status" id="status">loading…</p>
+
+      <div class="bowl" id="bowl"></div>
+      <div class="spark-row">
+        <canvas class="spark" id="spark" width="160" height="24" aria-hidden="true"></canvas>
+        <button class="info" id="spark-info-btn" type="button" aria-expanded="false" aria-controls="spark-info" title="what is this bar?">i</button>
+      </div>
+      <div class="spark-info small" id="spark-info" hidden>
+        <p>each column is one frame, newest on the right.</p>
+        <p><span class="key grey"></span> frame time, 0–50ms. the faint line is one screen refresh (<span id="refresh-ms">…</span>).</p>
+        <p><span class="key red"></span> a dropped frame: longer than 1.5× a refresh. this is what lag looks like.</p>
+        <p><span class="key aqua"></span> sim time: fish movement and the cursor flee logic. it's the same work under every renderer. log scale, 0.01–10ms, so tiny costs still show.</p>
+        <p>moving the cursor raises the aqua line a little. red only shows up when the whole frame runs late: add fish or switch to two.</p>
+      </div>
+
+      <!-- the bowl: what's on screen right now -->
+      <section class="group bowl-controls" aria-label="bowl">
+        <select class="select" id="renderer" aria-label="renderer"></select>
+        <p class="row">
+          <a href="#" data-fish="1000">+1000 fish</a>
+          <a href="#" data-fish="100">+100 fish</a>
+          <a href="#" data-fish="-100">-100 fish</a>
+          <a href="#" data-fish="-1000">-1000 fish</a>
+          <a href="#" data-act="reset">reset</a>
+        </p>
+      </section>
+
+      <!-- the bench: measuring it. boxed = a choice, filled = an action, plain text = secondary -->
+      <section class="group bench" aria-labelledby="bench-title">
+        <h2 class="bench-title" id="bench-title">benchmark</h2>
+        <p class="bench-sub" id="bench-sub"></p>
+        <div class="bench-buttons">
+          <button type="button" class="btn primary" id="run-btn" data-act="run">run 10s</button>
+          <button type="button" class="btn secondary" id="ramp-btn" data-act="ramp">ramp</button>
+        </div>
+        <p class="row">
+          <a href="#" class="bench-link" data-act="run-all">run all</a>
+          <a href="#" class="bench-link" data-act="ramp-all">ramp all</a>
+        </p>
+        <p class="footnote" id="footnote"></p>
+
+        <p class="about small" id="about">
+          same seeded fish, same frames, six renderers. run 10s = 2s warmup + 10s measured.
+          ramp = ×1.25 fish every 2s until p95 frame time &gt; 18ms. cpu = update + render on the main thread
+          (gpu work is not included). heap is chromium only.
+        </p>
+   
+
+        <div class="results">
+          <table id="results"></table>
+          <p class="row small" id="results-actions">
+            <a href="#" data-act="export-json">export json</a>
+            <a href="#" data-act="export-csv">export csv</a>
+            <a href="#" data-act="clear">clear</a>
+          </p>
+        </div>
+      </section>
+
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

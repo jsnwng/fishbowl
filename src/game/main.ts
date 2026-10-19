@@ -1,6 +1,7 @@
 import '../style.css';
 import { HEIGHT, WIDTH } from '../adapters/types';
 import { Recorder, detectRefreshMs } from '../metrics';
+import { mountNav } from '../nav';
 import { download } from '../ui/results';
 import { Game } from './game';
 import { HUNTERS, HumanHunter, type HunterEntry } from './hunters';
@@ -12,6 +13,8 @@ import { RULES, TICKS_PER_SECOND } from './rules';
 import { GameView } from './view';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+mountNav();
 
 const bowlEl = $<HTMLDivElement>('bowl');
 const statusEl = $<HTMLParagraphElement>('status');

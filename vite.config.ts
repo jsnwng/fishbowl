@@ -12,43 +12,60 @@ const isolation = {
   'Cross-Origin-Embedder-Policy': 'require-corp',
 };
 
-// The fisherman page is a second build (`--mode fisherman`) on top of the bench's dist/.
-// Built together, Rollup would share pixi chunks between the pages and the bench's pixi
-// bundle size would grow with whatever the game uses.
-const fishermanBuild: BuildOptions = {
-  emptyOutDir: false,
-  manifest: false,
-  assetsDir: 'fisherman/assets',
-  chunkSizeWarningLimit: 2000,
-  rollupOptions: { input: resolve(root, 'fisherman/index.html') },
+// Each page is its own build on top of the bench's dist/. Built together, Rollup would share
+// pixi chunks between pages and the bench's measured bundle sizes would move with them.
+const builds: Record<string, BuildOptions> = {
+  // `vite build`: the renderer benchmark. Its manifest feeds scripts/bundle-sizes.mjs.
+  production: {
+    manifest: true,
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: { input: resolve(root, 'renderers/index.html') },
+  },
+  // `vite build --mode players`: the fisherman game.
+  players: {
+    emptyOutDir: false,
+    manifest: false,
+    assetsDir: 'players/assets',
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: { input: resolve(root, 'players/index.html') },
+  },
+  // `vite build --mode story`: the story page at the root.
+  story: {
+    emptyOutDir: false,
+    manifest: false,
+    assetsDir: 'story/assets',
+    rollupOptions: { input: resolve(root, 'index.html') },
+  },
 };
 
-// Without the trailing slash, Vite's SPA fallback serves the bench's index.html at /fisherman.
-// Redirect it like a static host would (vercel.json does the same for the live site).
-const toFisherman: Connect.NextHandleFunction = (req, res, next) => {
+// Old and slash-less paths. Without these, Vite's SPA fallback would serve the story page
+// at /players and friends. vercel.json does the same for the live site.
+const REDIRECTS: Record<string, string> = {
+  '/fisherman': '/players/',
+  '/fisherman/': '/players/',
+  '/fisherman/index.html': '/players/',
+  '/renderers': '/renderers/',
+  '/players': '/players/',
+};
+const redirect: Connect.NextHandleFunction = (req, res, next) => {
   const [path, query] = (req.url ?? '').split('?');
-  if (path !== '/fisherman') return next();
+  const to = REDIRECTS[path];
+  if (!to) return next();
   res.statusCode = 301;
-  res.setHeader('Location', `/fisherman/${query ? `?${query}` : ''}`);
+  res.setHeader('Location', `${to}${query ? `?${query}` : ''}`);
   res.end();
 };
-const fishermanSlash: Plugin = {
-  name: 'fisherman-trailing-slash',
-  configureServer: (server) => void server.middlewares.use(toFisherman),
-  configurePreviewServer: (server) => void server.middlewares.use(toFisherman),
+const redirects: Plugin = {
+  name: 'site-redirects',
+  configureServer: (server) => void server.middlewares.use(redirect),
+  configurePreviewServer: (server) => void server.middlewares.use(redirect),
 };
 
 export default defineConfig(({ mode }) => ({
   root,
   base: './',
-  plugins: [fishermanSlash],
+  plugins: [redirects],
   server: { headers: isolation },
   preview: { headers: isolation },
-  build:
-    mode === 'fisherman'
-      ? fishermanBuild
-      : {
-          manifest: true,
-          chunkSizeWarningLimit: 2000,
-        },
+  build: builds[mode] ?? builds.production,
 }));

@@ -1,4 +1,4 @@
-// Reads Vite's build manifest and writes dist/bundle-sizes.json: gzip KB per renderer.
+// Reads Vite's build manifest and writes dist/renderers/bundle-sizes.json: gzip KB per renderer.
 // A renderer's size = every chunk reachable from its adapter (static + lazy imports),
 // minus chunks the app shell already loads. Lazy chunks are included, so libraries that
 // split out optional renderers (pixi's WebGPU path, say) report an upper bound.
@@ -18,13 +18,15 @@ function closure(key, followDynamic, seen = new Set(), stop = new Set()) {
   return seen;
 }
 
-const shell = closure('index.html', false);
+// The benchmark page; its own manifest key, since it lives at /renderers/.
+const PAGE = 'renderers/index.html';
+const shell = closure(PAGE, false);
 const gz = (file) => gzipSync(readFileSync(join(dist, file))).length;
 
 // The adapters are the app shell's lazy imports. Rollup sometimes merges an adapter into its
 // library's chunk (pixi), which drops the src key, so name each one by its chunk file instead.
 const out = {};
-for (const key of manifest['index.html'].dynamicImports ?? []) {
+for (const key of manifest[PAGE].dynamicImports ?? []) {
   const m = /^assets\/(\w+)-[\w-]+\.js$/.exec(manifest[key].file);
   if (!m) continue;
   let bytes = 0;
@@ -37,5 +39,5 @@ for (const key of manifest['index.html'].dynamicImports ?? []) {
   out[m[1]] = Math.round(bytes / 102.4) / 10;
 }
 
-writeFileSync(join(dist, 'bundle-sizes.json'), JSON.stringify(out, null, 2));
+writeFileSync(join(dist, 'renderers', 'bundle-sizes.json'), JSON.stringify(out, null, 2));
 console.log('gzip KB per renderer:', out);

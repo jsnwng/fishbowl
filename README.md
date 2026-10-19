@@ -1,12 +1,12 @@
 # fishbowl
 
-An 8-bit aquarium for benchmarking 2D web renderers.
+An 8-bit aquarium for testing things in the browser: first 2D renderers, then the players that fish in it.
 
-**Live demo: [fishbowl.jsnwng.dev](https://fishbowl.jsnwng.dev/)**
+**Live: [fishbowl.jsnwng.dev](https://fishbowl.jsnwng.dev/)**, the story behind it. The experiments are at [`/renderers/`](https://fishbowl.jsnwng.dev/renderers/) and [`/players/`](https://fishbowl.jsnwng.dev/players/).
 
 ![Pixel-art fish swimming over seaweed, rocks and a treasure chest](docs/bowl.png)
 
-The same seeded fish swim through the same frames under six different renderers. Add fish until it lags, run timed tests, and compare the numbers.
+On the renderers page, the same seeded fish swim through the same frames under six different renderers. Add fish until it lags, run timed tests, and compare the numbers.
 
 ## Renderers
 
@@ -37,7 +37,7 @@ The comparison is kept fair on purpose:
 
 ## The fisherman
 
-[`/fisherman/`](https://fishbowl.jsnwng.dev/fisherman/) is a fishing game built on the same bowl, drawn with PixiJS. You get 2 minutes to catch as many points as you can. Rare fish are worth more, and they're faster or more skittish.
+[`/players/`](https://fishbowl.jsnwng.dev/players/) is a fishing game built on the same bowl, drawn with PixiJS. You get 2 minutes to catch as many points as you can. Rare fish are worth more, and they're faster or more skittish.
 
 The rules make sure casting once and waiting doesn't pay:
 
@@ -107,15 +107,21 @@ src/
   scenery.ts    background painter
   runner.ts     render loop, renderer switching, run and ramp
   metrics.ts    frame stats, percentiles, heap sampling
-  main.ts       page wiring
+  main.ts       renderers page wiring
+  nav.ts        the site's sections, shared by every page's header
   game/         the fisherman: headless game, rules, hunters, PixiJS view
-fisherman/
-  index.html    the fisherman page
+  story/        the story page's script
+index.html      the story, at the root
+renderers/
+  index.html    the renderer benchmark
+players/
+  index.html    the fisherman game
+public/story/   screenshots for the story
 scripts/
   bundle-sizes.mjs   gzip size per renderer, from the Vite manifest
   score.ts           plays every hunter headless over many seeds (npm run score)
 ```
 
-The fisherman page is built separately (`vite build --mode fisherman`) so it doesn't share chunks with the benchmark and change its bundle sizes.
+Each page is its own Vite build (`vite build`, then `--mode players` and `--mode story`), so the pages don't share chunks and the benchmark's bundle sizes stay its own.
 
 Built with Vite and TypeScript.

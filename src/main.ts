@@ -1,11 +1,14 @@
 import './style.css';
 import { RENDERERS } from './adapters';
+import { mountNav } from './nav';
 import { HEIGHT, WIDTH } from './adapters/types';
 import { detectRefreshMs } from './metrics';
 import { Bowl, type RunResult } from './runner';
 import { download, loadResults, renderTable, saveResults, toCsv } from './ui/results';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+mountNav();
 
 const bowlEl = $<HTMLDivElement>('bowl');
 const statusEl = $<HTMLParagraphElement>('status');
