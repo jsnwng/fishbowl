@@ -4,3 +4,11 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+
+# training: the Python environment and everything training produces
+training/.venv/
+training/runs/
+training/data/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/

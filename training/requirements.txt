@@ -1,0 +1,6 @@
+# Python packages for training. PyTorch is installed separately (CPU build), see training/README.md.
+numpy>=2.0
+gymnasium>=1.0
+matplotlib>=3.9
+tensorboard>=2.17
+jupyterlab>=4.2
