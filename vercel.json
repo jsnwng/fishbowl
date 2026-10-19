@@ -1,7 +1,8 @@
 {
   "redirects": [
     { "source": "/fisherman", "destination": "/players/", "permanent": true },
-    { "source": "/fisherman/:path*", "destination": "/players/:path*", "permanent": true },
+    { "source": "/fisherman/", "destination": "/players/", "permanent": true },
+    { "source": "/fisherman/:path+", "destination": "/players/:path+", "permanent": true },
     { "source": "/renderers", "destination": "/renderers/", "permanent": true },
     { "source": "/players", "destination": "/players/", "permanent": true }
   ],
