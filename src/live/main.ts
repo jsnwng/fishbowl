@@ -56,10 +56,10 @@ const voiceEl = $<HTMLParagraphElement>('voice');
 const mb = (n: number) => `${Math.round(n / 1e6)} MB`;
 function drawVoice() {
   if (voice === canned) {
-    voiceEl.innerHTML = `chat: hand-written lines · <a href="#" data-act="model">use the trained model (${ModelVoice.mb} MB)</a>`;
+    voiceEl.innerHTML = `chat written by: hand-written lines · <a href="#" data-act="model">switch to the trained model (${ModelVoice.mb} MB)</a>`;
   } else if (model) {
     const ms = model.msPerLine;
-    voiceEl.innerHTML = `chat: trained model, on ${model.device === 'webgpu' ? 'your gpu' : 'your cpu'}${ms ? ` · ${Math.round(ms)} ms a line` : ''} · <a href="#" data-act="canned">hand-written</a>`;
+    voiceEl.innerHTML = `chat written by: a model trained on this game, running on ${model.device === 'webgpu' ? 'your gpu' : 'your cpu'}${ms ? ` · ${Math.round(ms)} ms a line` : ''} · <a href="#" data-act="canned">switch to hand-written</a>`;
   }
 }
 async function useModel() {
@@ -67,9 +67,9 @@ async function useModel() {
     voice = model;
     return drawVoice();
   }
-  voiceEl.textContent = 'chat: loading the trained model…';
+  voiceEl.textContent = 'chat written by: hand-written lines, until the trained model loads…';
   const m = new ModelVoice((loaded, total) => {
-    voiceEl.textContent = `chat: loading the trained model, ${mb(loaded)}${total ? ` of ${mb(total)}` : ''}`;
+    voiceEl.textContent = `chat written by: hand-written lines, loading the trained model (${mb(loaded)}${total ? ` of ${mb(total)}` : ''})`;
   });
   try {
     await m.ready;
@@ -77,13 +77,25 @@ async function useModel() {
     voice = m;
     ui.notice(`trained model loaded in ${(m.loadMs / 1000).toFixed(1)}s`);
   } catch (err) {
-    voiceEl.textContent = `chat: couldn't load the trained model (${(err as Error).message}). hand-written lines for now.`;
+    voiceEl.textContent = `chat written by: hand-written lines. the trained model couldn't load here (${(err as Error).message}).`;
     return;
   }
   drawVoice();
 }
 setInterval(() => model && voice === model && drawVoice(), 2000);
 drawVoice();
+
+/**
+ * Load the model without asking where it's cheap to: a desktop with WebGPU, not saving data.
+ * Phones get the button instead, so nobody's data plan pays for 118 MB they didn't ask for, and
+ * low-memory devices don't risk the tab.
+ */
+function autoLoadOk() {
+  const nav = navigator as Navigator & { connection?: { saveData?: boolean }; userAgentData?: { mobile?: boolean } };
+  if (!('gpu' in navigator) || nav.connection?.saveData) return false;
+  const phone = nav.userAgentData?.mobile ?? (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 700);
+  return !phone;
+}
 
 // ---- bowl scale and you ----
 new ResizeObserver(() => {
@@ -226,6 +238,8 @@ async function boot() {
   ui.notice(entry.human ? "you're live" : `${entry.id} is live`);
   start();
   requestAnimationFrame(frame);
+  // the game first, then the model: give the stream a moment to get going
+  if (autoLoadOk()) setTimeout(() => void useModel(), 1500);
 }
 
 void boot();
