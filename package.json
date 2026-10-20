@@ -12,6 +12,7 @@
     "score": "tsx scripts/score.ts"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.0",
     "konva": "^9.3.22",
     "p5": "^1.11.13",
     "pixi.js": "^8.22.0",

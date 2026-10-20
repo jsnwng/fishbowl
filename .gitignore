@@ -13,3 +13,7 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 training/voice-model/
+training/.venv-export/
+training/voice-model-v1/
+training/voice-onnx/
+public/live/voice/

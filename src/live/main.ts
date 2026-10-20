@@ -8,6 +8,7 @@ import { describeHunter, mountHunterPicker } from '../game/picker';
 import { TICKS_PER_SECOND } from '../game/rules';
 import { GameView } from '../game/view';
 import { CannedVoice, Director, type Voice } from './director';
+import { ModelVoice } from './model-voice';
 import { MomentTracker, WatchedHunter, contextOf, type Moment } from './moments';
 import { StreamUI } from './stream';
 
@@ -35,7 +36,9 @@ const match = new Match(game, watch(entry));
 match.mode = 'realtime';
 
 const ui = new StreamUI($('bubble'), $('bubble-tail'), $('chat-log'), $('viewers'), HUNTERS);
-const voice: Voice = new CannedVoice();
+const canned = new CannedVoice();
+let model: ModelVoice | null = null;
+let voice: Voice = canned;
 const director = new Director(
   () => voice,
   (s) => ui.say(s),
@@ -47,6 +50,41 @@ function react(ms: Moment[]) {
   const ctx = contextOf(game, entry.id);
   for (const m of ms) director.react(m, ctx, entry.human ? null : entry.id, viewersOf(entry));
 }
+
+// ---- the chat model: hand-written lines until you load the trained one ----
+const voiceEl = $<HTMLParagraphElement>('voice');
+const mb = (n: number) => `${Math.round(n / 1e6)} MB`;
+function drawVoice() {
+  if (voice === canned) {
+    voiceEl.innerHTML = `chat: hand-written lines · <a href="#" data-act="model">use the trained model (${ModelVoice.mb} MB)</a>`;
+  } else if (model) {
+    const ms = model.msPerLine;
+    voiceEl.innerHTML = `chat: trained model, on ${model.device === 'webgpu' ? 'your gpu' : 'your cpu'}${ms ? ` · ${Math.round(ms)} ms a line` : ''} · <a href="#" data-act="canned">hand-written</a>`;
+  }
+}
+async function useModel() {
+  if (model) {
+    voice = model;
+    return drawVoice();
+  }
+  voiceEl.textContent = 'chat: loading the trained model…';
+  // public/live/voice/ is served next to this page
+  const m = new ModelVoice(new URL('./', document.baseURI).pathname, (loaded, total) => {
+    voiceEl.textContent = `chat: loading the trained model, ${mb(loaded)}${total ? ` of ${mb(total)}` : ''}`;
+  });
+  try {
+    await m.ready;
+    model = m;
+    voice = m;
+    ui.notice(`trained model loaded in ${(m.loadMs / 1000).toFixed(1)}s`);
+  } catch (err) {
+    voiceEl.textContent = `chat: couldn't load the trained model (${(err as Error).message}). hand-written lines for now.`;
+    return;
+  }
+  drawVoice();
+}
+setInterval(() => model && voice === model && drawVoice(), 2000);
+drawVoice();
 
 // ---- bowl scale and you ----
 new ResizeObserver(() => {
@@ -167,7 +205,11 @@ document.addEventListener('click', (e) => {
   const el = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
   if (!el) return;
   if (el.tagName === 'A') e.preventDefault();
-  if (el.dataset.act === 'start') start();
+  if (el.dataset.act === 'model') void useModel();
+  else if (el.dataset.act === 'canned') {
+    voice = canned;
+    drawVoice();
+  } else if (el.dataset.act === 'start') start();
   else if (el.dataset.act === 'stop') stop();
   else if (el.dataset.act === 'seed') {
     seed++;

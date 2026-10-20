@@ -1,5 +1,8 @@
 import { opinionOf, pickText, slotOf, type LineRequest } from './lines';
 
+/** The chat model's system message. Must match SYSTEM in training/voice.ipynb, which it was trained with. */
+export const SYSTEM = "You write one short chat line for a pixel-art fishing stream, in the speaker's voice.";
+
 /**
  * A request as plain text: who's talking, where, and what just happened. The teacher reads this
  * to write a line, the trained voice learns to answer it, and the browser builds the same text
