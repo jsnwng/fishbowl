@@ -73,21 +73,33 @@ const backend: Backend = !phone && !forceCpu && 'gpu' in navigator ? { device: '
 const sizeMb = backend.device === 'webgpu' ? ModelVoice.mb : ModelVoice.mbCpu;
 
 /**
- * Breadcrumbs: each loading step is saved as it happens. If the page dies partway, the next visit
- * says which step it died on. On a phone there's no debugger to ask.
+ * Breadcrumbs: each loading step is saved, with its time, as it happens. If the page dies partway,
+ * the next visit shows the trail in the status line and doesn't try again on its own, so a crash
+ * can't loop before anyone reads it. On a phone there's no debugger to ask.
  */
 const CRUMBS = 'fishbowl.live.model-load';
-let crumbsDone = false; // after the first line, loading is over and nothing more is recorded
-const crumb = (stage: string) => {
-  if (crumbsDone) return;
-  if (stage === 'done') crumbsDone = true;
+type Trail = { backend: string; start: number; steps: [string, number][]; done?: boolean };
+let trail: Trail | null = null;
+const saveTrail = () => {
   try {
-    localStorage.setItem(CRUMBS, JSON.stringify({ stage, at: Date.now(), backend: backend.device }));
+    localStorage.setItem(CRUMBS, JSON.stringify(trail));
   } catch {}
 };
+const crumb = (stage: string) => {
+  if (!trail || trail.done) return; // after the first line, loading is over and nothing more is recorded
+  if (stage === 'done') trail.done = true;
+  else trail.steps.push([stage, Date.now() - trail.start]);
+  saveTrail();
+};
+/** The last try, if it never finished: "downloading the model 0.4s → setting up 9.8s → …" */
+let lastTry = '';
 try {
-  const last = JSON.parse(localStorage.getItem(CRUMBS) ?? 'null');
-  if (last && last.stage !== 'done') ui.notice(`last time, loading the trained model (${last.backend}) stopped at: ${last.stage}`);
+  const last: Trail | null = JSON.parse(localStorage.getItem(CRUMBS) ?? 'null');
+  if (last && !last.done && last.steps?.length) {
+    const [stage, ms] = last.steps[last.steps.length - 1];
+    lastTry = `last try (${last.backend}) stopped at: ${stage} (${(ms / 1000).toFixed(1)}s)`;
+    ui.notice(`${lastTry}. trail: ${last.steps.map(([st, t]) => `${st} ${(t / 1000).toFixed(1)}s`).join(' → ')}`);
+  }
 } catch {}
 
 let failed = '';
@@ -101,6 +113,7 @@ function drawVoice() {
   });
   let status: string;
   if (blocked) status = 'the trained model needs a desktop browser for now';
+  else if (lastTry && voice === canned && !model && !loading) status = `${lastTry} · tap trained model to retry`;
   else if (failed) status = `the trained model couldn't load here: ${failed}`;
   else if (loading) status = loading;
   else if (voice === canned) status = model ? 'picked from a hand-written list' : `picked from a hand-written list · model is ${sizeMb} MB`;
@@ -110,6 +123,8 @@ function drawVoice() {
     status = `${sizeMb} MB · your ${model?.device === 'webgpu' ? 'gpu' : 'cpu'}${ms ? ` · ~${ms} ms a line` : ''}`;
   }
   statusLine.textContent = status;
+  // the one status that's allowed to wrap: it's read once, and on a phone it wouldn't fit
+  statusLine.classList.toggle('wrap', status.startsWith('last try'));
 }
 async function useModel() {
   if (blocked) return drawVoice();
@@ -120,6 +135,8 @@ async function useModel() {
   if (loading) return;
   failed = '';
   loading = 'downloading the model…';
+  lastTry = '';
+  trail = { backend: backend.device, start: Date.now(), steps: [] };
   crumb('starting');
   drawVoice();
   const m = new ModelVoice(
@@ -308,7 +325,8 @@ async function boot() {
   start();
   requestAnimationFrame(frame);
   // the game first, then the model: give the stream a moment to get going
-  if (!blocked) setTimeout(() => void useModel(), 1500);
+  // not after an unfinished try: that might be a crash, and it shouldn't happen again unasked
+  if (!blocked && !lastTry) setTimeout(() => void useModel(), 1500);
 }
 
 void boot();
