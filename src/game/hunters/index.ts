@@ -28,7 +28,7 @@ export const HUNTERS: HunterEntry[] = [
     make: () => new HeuristicHunter(),
   },
   {
-    id: 'clone',
+    id: 'model',
     coat: { main: '#2a7ad8', shade: '#1a4e96' },
     blurb:
       "a small neural network that learned by watching the heuristic play 160 games. it decides when to cast and which fish to go after, and the heuristic's aiming code drops the hook. about 7,300 numbers, running in your browser.",

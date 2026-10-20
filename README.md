@@ -55,7 +55,7 @@ The game itself is headless and deterministic: the same seed and the same action
 ```
 hunter          catches        points
 heuristic        13.9 ± 3.3    37.1 ± 7.0
-clone            13.7 ± 2.9    33.0 ± 9.6
+model            13.7 ± 2.9    33.0 ± 9.6
 cast and wait     6.7 ± 2.6    12.6 ± 6.4
 random            1.4 ± 1.4     2.0 ± 2.3
 ```
@@ -76,9 +76,9 @@ A heuristic is a rule of thumb: a shortcut a person writes down that's usually g
 
 It's strong because it never hesitates and its aim is decent math. It can be beaten because it only knows what someone thought to write down. It assumes fish keep swimming straight, and they don't always. The thresholds in it are educated guesses, not proven best values.
 
-### How the clone works
+### How the model works
 
-The clone is a small neural network that learned by watching the heuristic play, trained in Python in [`training/`](training/). Nobody wrote its rules: it saw about 34,000 of the heuristic's decisions from 160 games and learned to make the same ones. It has three layers and about 7,300 weights, and the browser runs it in plain TypeScript in [`src/game/hunters/clone.ts`](src/game/hunters/clone.ts), with no ML library, in about 20 microseconds a decision.
+The model is a small neural network that learned by watching the heuristic play, trained in Python in [`training/`](training/). Nobody wrote its rules: it saw about 34,000 of the heuristic's decisions from 160 games and learned to make the same ones. It has three layers and about 7,300 weights, and the browser runs it in plain TypeScript in [`src/game/hunters/clone.ts`](src/game/hunters/clone.ts), with no ML library, in about 20 microseconds a decision.
 
 The first version had to say exactly where to cast, and it caught about 9 fish to the heuristic's 14, while matching 96% of its choices. All of the gap was aim. When two fish both looked good, it cast between them, into empty water. So the job is split: the network decides when to cast and which of the 5 nearest fish to go after, and the heuristic's aiming code drops the hook. That version catches about 14.
 

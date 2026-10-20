@@ -12,7 +12,7 @@ import weights from './clone-weights.json';
  * microseconds with no ML library.
  */
 export class CloneHunter implements Hunter {
-  id = 'clone';
+  id = 'model';
 
   reset() {}
 
