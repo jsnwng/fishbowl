@@ -1,6 +1,6 @@
 import type { Voice } from './director';
 import type { LineRequest } from './lines';
-import type { FromWorker, ToWorker } from './model.worker';
+import type { Backend, FromWorker, ToWorker } from './model.worker';
 import { describe } from './prompt';
 import voiceVersion from './voice-version.json';
 
@@ -23,6 +23,7 @@ function tidy(text: string, req: LineRequest): string | null {
 export class ModelVoice implements Voice {
   name = 'trained model';
   static readonly mb = voiceVersion.mb;
+  static readonly mbCpu = voiceVersion.mbCpu;
   device = '';
   loadMs = 0;
   /** ms per line, newest last, for the page to report. */
@@ -33,11 +34,16 @@ export class ModelVoice implements Voice {
   private requests = new Map<number, LineRequest>();
   private nextId = 0;
 
-  constructor(onProgress: (loaded: number, total: number) => void) {
+  constructor(
+    backend: Backend,
+    onProgress: (loaded: number, total: number) => void,
+    onStage: (stage: string) => void = () => {},
+  ) {
     this.ready = new Promise((resolve, reject) => {
       this.worker.onmessage = (e: MessageEvent<FromWorker>) => {
         const m = e.data;
         if (m.type === 'progress') onProgress(m.loaded, m.total);
+        else if (m.type === 'stage') onStage(m.stage);
         else if (m.type === 'ready') {
           this.device = m.device;
           this.loadMs = m.loadMs;
@@ -53,7 +59,9 @@ export class ModelVoice implements Voice {
       };
     });
     // voice/<version>/ in the bucket: written by training/export_voice.py, then uploaded
-    this.send({ type: 'load', host: voiceVersion.host, id: `voice/${voiceVersion.version}` });
+    // in dev, ?voicehost=http://localhost:8787/ loads an export before it's uploaded (training/serve_voice.py)
+    const host = (import.meta.env.DEV && new URLSearchParams(location.search).get('voicehost')) || voiceVersion.host;
+    this.send({ type: 'load', host, id: `voice/${voiceVersion.version}`, backend });
   }
 
   line(req: LineRequest): Promise<string | null> {

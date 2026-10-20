@@ -4,9 +4,12 @@
 import { AutoModelForCausalLM, AutoTokenizer, env, type PreTrainedModel, type PreTrainedTokenizer } from '@huggingface/transformers';
 import { SYSTEM } from './prompt';
 
-export type ToWorker = { type: 'load'; host: string; id: string } | { type: 'line'; id: number; prompt: string };
+/** Where the model runs: the GPU with 4-bit weights, or the CPU (WebAssembly) with 8-bit ones. */
+export type Backend = { device: 'webgpu'; dtype: 'q4f16' } | { device: 'wasm'; dtype: 'q8' };
+export type ToWorker = { type: 'load'; host: string; id: string; backend: Backend } | { type: 'line'; id: number; prompt: string };
 export type FromWorker =
   | { type: 'progress'; loaded: number; total: number }
+  | { type: 'stage'; stage: string }
   | { type: 'ready'; device: string; loadMs: number }
   | { type: 'error'; message: string }
   | { type: 'line'; id: number; text: string; ms: number };
@@ -16,7 +19,7 @@ let tokenizer: PreTrainedTokenizer | null = null;
 let model: PreTrainedModel | null = null;
 let queue = Promise.resolve();
 
-async function load(host: string, id: string) {
+async function load(host: string, id: string, backend: Backend) {
   const t0 = performance.now();
   // The model lives in object storage (Cloudflare R2), not in the site: at 118 MB it's over
   // GitHub's file limit, and it's a build output anyway. Files load from <host><id>/<file>.
@@ -26,6 +29,7 @@ async function load(host: string, id: string) {
   env.remotePathTemplate = '{model}/';
   const files = new Map<string, { loaded: number; total: number }>();
   const progress_callback = (p: { status: string; file?: string; loaded?: number; total?: number }) => {
+    if (p.status === 'done' && p.file?.endsWith('.onnx')) post({ type: 'stage', stage: 'downloaded, setting up the model' });
     if (p.status !== 'progress' || !p.file) return;
     files.set(p.file, { loaded: p.loaded ?? 0, total: p.total ?? 0 });
     let loaded = 0;
@@ -36,10 +40,11 @@ async function load(host: string, id: string) {
     }
     post({ type: 'progress', loaded, total });
   };
-  const device = 'gpu' in navigator ? 'webgpu' : 'wasm';
+  post({ type: 'stage', stage: 'loading the tokenizer' });
   tokenizer = await AutoTokenizer.from_pretrained(id);
-  model = await AutoModelForCausalLM.from_pretrained(id, { device, dtype: 'q4f16', progress_callback });
-  post({ type: 'ready', device, loadMs: performance.now() - t0 });
+  post({ type: 'stage', stage: 'downloading the model' });
+  model = await AutoModelForCausalLM.from_pretrained(id, { ...backend, progress_callback });
+  post({ type: 'ready', device: backend.device, loadMs: performance.now() - t0 });
 }
 
 async function line(id: number, prompt: string) {
@@ -66,7 +71,7 @@ async function line(id: number, prompt: string) {
 self.onmessage = (e: MessageEvent<ToWorker>) => {
   const m = e.data;
   if (m.type === 'load') {
-    load(m.host, m.id).catch((err) => post({ type: 'error', message: String(err?.message ?? err) }));
+    load(m.host, m.id, m.backend).catch((err) => post({ type: 'error', message: String(err?.message ?? err) }));
   } else {
     // one line at a time: the model is single-threaded on the GPU anyway
     queue = queue.then(() => line(m.id, m.prompt)).catch((err) => post({ type: 'error', message: String(err?.message ?? err) }));

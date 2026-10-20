@@ -89,6 +89,16 @@ q4f16 = OUT / "onnx" / "model_q4f16.onnx"
 onnx.save(quant.model.model, str(q4f16))
 print(f"{q4f16.stat().st_size / 1e6:.0f} MB")
 
+# 3b. q8, for the CPU (WebAssembly): 8-bit integer weights, float32 math. The q4f16 file is for
+# the GPU; on the CPU its float16 math is slow or unsupported. Transformers.js finds this one as
+# dtype "q8", by the name model_quantized.onnx. Phones use it (see src/live/main.ts).
+step("8-bit weights for the CPU")
+from onnxruntime.quantization import QuantType, quantize_dynamic
+
+q8 = OUT / "onnx" / "model_quantized.onnx"
+quantize_dynamic(str(fp32), str(q8), weight_type=QuantType.QUInt8, extra_options={"MatMulConstBOnly": True})
+print(f"{q8.stat().st_size / 1e6:.0f} MB")
+
 # config, generation config and tokenizer next to it, the layout Transformers.js loads
 from transformers import AutoTokenizer
 
@@ -137,10 +147,10 @@ probes = [
 ]
 same = 0
 for p in probes:
-    a, b = greedy(fp32, np.float32, p), greedy(q4f16, np.float16, p)
+    a, b, c = greedy(fp32, np.float32, p), greedy(q4f16, np.float16, p), greedy(q8, np.float32, p)
     same += a == b
-    print(f"  original: {a!r}\n  shrunk:   {b!r}")
-print(f"{same} of {len(probes)} identical (small differences are normal at 4 bits; the voice should match)")
+    print(f"  original: {a!r}\n  q4f16:    {b!r}\n  q8:       {c!r}")
+print(f"{same} of {len(probes)} q4f16 lines identical (small differences are normal; the voice should match)")
 shutil.rmtree(WORK, ignore_errors=True)
 
 # name the folder after the model, drop older ones, and point the page at it
@@ -156,6 +166,7 @@ shutil.rmtree(OUT, ignore_errors=True)
 mb = round((VOICES / version / "onnx" / "model_q4f16.onnx").stat().st_size / 1e6)
 vfile = HERE.parent / "src" / "live" / "voice-version.json"
 host = json.loads(vfile.read_text()).get("host", "") if vfile.exists() else ""
-vfile.write_text(json.dumps({"version": version, "mb": mb, "host": host}) + "\n")
+mb_cpu = round((VOICES / version / "onnx" / "model_quantized.onnx").stat().st_size / 1e6)
+vfile.write_text(json.dumps({"version": version, "mb": mb, "mbCpu": mb_cpu, "host": host}) + "\n")
 print(f"\nwrote {VOICES / version}")
 print("next: upload that folder to the R2 bucket under voice/, then reload the live page")

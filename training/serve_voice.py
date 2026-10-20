@@ -1,0 +1,36 @@
+r"""Serve training/voice-out/ to the dev page, to try an export before uploading it to R2.
+
+    .\training\.venv\Scripts\python.exe training\serve_voice.py
+    then open http://localhost:5173/live/?voicehost=http://localhost:8787/
+
+Files are served at /voice/<version>/..., the same paths as the bucket, with the CORS and
+cross-origin headers the page needs.
+"""
+
+import http.server
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent / "voice-out"
+
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=str(ROOT), **kwargs)
+
+    def translate_path(self, path):
+        return super().translate_path(path.removeprefix("/voice"))
+
+    def end_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "range")
+        self.send_header("Access-Control-Expose-Headers", "Content-Length, Content-Range")
+        self.send_header("Cross-Origin-Resource-Policy", "cross-origin")
+        super().end_headers()
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.end_headers()
+
+
+print("serving", ROOT, "at http://localhost:8787/voice/")
+http.server.ThreadingHTTPServer(("127.0.0.1", 8787), Handler).serve_forever()

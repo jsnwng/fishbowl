@@ -9,6 +9,7 @@ import { TICKS_PER_SECOND } from '../game/rules';
 import { GameView } from '../game/view';
 import { CannedVoice, Director, type Voice } from './director';
 import { ModelVoice } from './model-voice';
+import type { Backend } from './model.worker';
 import { MomentTracker, WatchedHunter, contextOf, type Moment } from './moments';
 import { StreamUI } from './stream';
 
@@ -57,12 +58,35 @@ const toggles = document.querySelectorAll<HTMLButtonElement>('[data-voice]');
 const mb = (n: number) => `${Math.round(n / 1e6)}`;
 let loading: string | null = null; // the status while the model downloads
 /**
- * Phones don't get the model. It crashed a phone's browser on first try (memory, most likely:
- * 118 MB of weights plus the GPU's working copies), and a crash takes the whole page down.
+ * Phones are off by default: on an iPhone the GPU path crashed the browser (memory, most likely:
+ * iOS holds the weights both in memory and on the GPU, and kills the page over its limit).
+ * ?phone=1 lets a phone try the CPU path (8-bit weights, held once) while that's being tested.
  */
 const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
 const phone =
   nav.userAgentData?.mobile ?? (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820));
+const params = new URLSearchParams(location.search);
+const phoneTest = params.has('phone');
+const forceCpu = params.has('cpu'); // try the CPU path on a desktop
+const blocked = phone && !phoneTest;
+const backend: Backend = !phone && !forceCpu && 'gpu' in navigator ? { device: 'webgpu', dtype: 'q4f16' } : { device: 'wasm', dtype: 'q8' };
+const sizeMb = backend.device === 'webgpu' ? ModelVoice.mb : ModelVoice.mbCpu;
+
+/**
+ * Breadcrumbs: each loading step is saved as it happens. If the page dies partway, the next visit
+ * says which step it died on. On a phone there's no debugger to ask.
+ */
+const CRUMBS = 'fishbowl.live.model-load';
+const crumb = (stage: string) => {
+  try {
+    localStorage.setItem(CRUMBS, JSON.stringify({ stage, at: Date.now(), backend: backend.device }));
+  } catch {}
+};
+try {
+  const last = JSON.parse(localStorage.getItem(CRUMBS) ?? 'null');
+  if (last && last.stage !== 'done') ui.notice(`last time, loading the trained model (${last.backend}) stopped at: ${last.stage}`);
+} catch {}
+
 let failed = '';
 function drawVoice() {
   const on = voice === canned ? 'canned' : 'model';
@@ -70,22 +94,22 @@ function drawVoice() {
     const checked = t.dataset.voice === on;
     t.classList.toggle('on', checked);
     t.setAttribute('aria-checked', String(checked));
-    if (t.dataset.voice === 'model') t.disabled = phone;
+    if (t.dataset.voice === 'model') t.disabled = blocked;
   });
   let status: string;
-  if (phone) status = 'the trained model needs a desktop browser for now';
+  if (blocked) status = 'the trained model needs a desktop browser for now';
   else if (failed) status = `the trained model couldn't load here: ${failed}`;
   else if (loading) status = loading;
-  else if (voice === canned) status = model ? 'picked from a hand-written list' : `picked from a hand-written list · model is ${ModelVoice.mb} MB`;
+  else if (voice === canned) status = model ? 'picked from a hand-written list' : `picked from a hand-written list · model is ${sizeMb} MB`;
   else {
     // round to 50 ms so the line doesn't twitch with every message
     const ms = model ? Math.round(model.msPerLine / 50) * 50 : 0;
-    status = `${ModelVoice.mb} MB · your ${model?.device === 'webgpu' ? 'gpu' : 'cpu'}${ms ? ` · ~${ms} ms a line` : ''}`;
+    status = `${sizeMb} MB · your ${model?.device === 'webgpu' ? 'gpu' : 'cpu'}${ms ? ` · ~${ms} ms a line` : ''}`;
   }
   statusLine.textContent = status;
 }
 async function useModel() {
-  if (phone) return drawVoice();
+  if (blocked) return drawVoice();
   if (model) {
     voice = model;
     return drawVoice();
@@ -93,18 +117,39 @@ async function useModel() {
   if (loading) return;
   failed = '';
   loading = 'downloading the model…';
+  crumb('starting');
   drawVoice();
-  const m = new ModelVoice((loaded, total) => {
-    loading = `downloading the model · ${mb(loaded)}/${total ? mb(total) : ModelVoice.mb} MB`;
-    drawVoice();
-  });
+  const m = new ModelVoice(
+    backend,
+    (loaded, total) => {
+      loading = `downloading the model · ${mb(loaded)}/${total ? mb(total) : sizeMb} MB`;
+      drawVoice();
+    },
+    (stage) => {
+      crumb(stage);
+      if (stage.startsWith('downloaded')) {
+        loading = 'setting up the model…';
+        drawVoice();
+      }
+    },
+  );
   try {
     await m.ready;
+    crumb('ready, writing the first line');
     model = m;
     voice = m;
-    ui.notice(`trained model loaded in ${(m.loadMs / 1000).toFixed(1)}s`);
+    ui.notice(`trained model loaded in ${(m.loadMs / 1000).toFixed(1)}s, on the ${m.device === 'webgpu' ? 'gpu' : 'cpu'}`);
+    // the first line is the last risky step; after it, loading is done
+    const t0 = Date.now();
+    const wait = setInterval(() => {
+      if (m.times.length) {
+        crumb('done');
+        clearInterval(wait);
+      } else if (Date.now() - t0 > 60000) clearInterval(wait);
+    }, 500);
   } catch (err) {
     failed = (err as Error).message;
+    crumb(`error: ${failed}`);
   }
   loading = null;
   drawVoice();
@@ -260,7 +305,7 @@ async function boot() {
   start();
   requestAnimationFrame(frame);
   // the game first, then the model: give the stream a moment to get going
-  if (!phone) setTimeout(() => void useModel(), 1500);
+  if (!blocked) setTimeout(() => void useModel(), 1500);
 }
 
 void boot();
