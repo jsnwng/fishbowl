@@ -56,6 +56,13 @@ const statusLine = $<HTMLParagraphElement>('voice-status');
 const toggles = document.querySelectorAll<HTMLButtonElement>('[data-voice]');
 const mb = (n: number) => `${Math.round(n / 1e6)}`;
 let loading: string | null = null; // the status while the model downloads
+/**
+ * Phones don't get the model. It crashed a phone's browser on first try (memory, most likely:
+ * 118 MB of weights plus the GPU's working copies), and a crash takes the whole page down.
+ */
+const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
+const phone =
+  nav.userAgentData?.mobile ?? (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820));
 let failed = '';
 function drawVoice() {
   const on = voice === canned ? 'canned' : 'model';
@@ -63,9 +70,11 @@ function drawVoice() {
     const checked = t.dataset.voice === on;
     t.classList.toggle('on', checked);
     t.setAttribute('aria-checked', String(checked));
+    if (t.dataset.voice === 'model') t.disabled = phone;
   });
   let status: string;
-  if (failed) status = `the trained model couldn't load here: ${failed}`;
+  if (phone) status = 'the trained model needs a desktop browser for now';
+  else if (failed) status = `the trained model couldn't load here: ${failed}`;
   else if (loading) status = loading;
   else if (voice === canned) status = model ? 'picked from a hand-written list' : `picked from a hand-written list · model is ${ModelVoice.mb} MB`;
   else {
@@ -76,6 +85,7 @@ function drawVoice() {
   statusLine.textContent = status;
 }
 async function useModel() {
+  if (phone) return drawVoice();
   if (model) {
     voice = model;
     return drawVoice();
@@ -250,7 +260,7 @@ async function boot() {
   start();
   requestAnimationFrame(frame);
   // the game first, then the model: give the stream a moment to get going
-  setTimeout(() => void useModel(), 1500);
+  if (!phone) setTimeout(() => void useModel(), 1500);
 }
 
 void boot();

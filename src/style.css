@@ -592,8 +592,12 @@ a:hover {
   font: bold 12px 'Courier New', Courier, monospace;
   cursor: pointer;
 }
-.voice-toggle button:hover {
+.voice-toggle button:hover:not(:disabled) {
   color: var(--fg);
+}
+.voice-toggle button:disabled {
+  color: var(--faint);
+  cursor: default;
 }
 .voice-toggle button.on {
   border-color: #666;
