@@ -2,7 +2,7 @@
 
 An 8-bit aquarium for testing things in the browser: first 2D renderers, then the players that fish in it.
 
-**Live: [fishbowl.jsnwng.dev](https://fishbowl.jsnwng.dev/)**, the story behind it. The experiments are at [`/renderers/`](https://fishbowl.jsnwng.dev/renderers/) and [`/players/`](https://fishbowl.jsnwng.dev/players/).
+**Live: [fishbowl.jsnwng.dev](https://fishbowl.jsnwng.dev/)**. The experiments are at [`/renderers/`](https://fishbowl.jsnwng.dev/renderers/) and [`/players/`](https://fishbowl.jsnwng.dev/players/).
 
 ![Pixel-art fish swimming over seaweed, rocks and a treasure chest](docs/bowl.png)
 
@@ -115,13 +115,13 @@ src/
   main.ts       renderers page wiring
   nav.ts        the site's sections, shared by every page's header
   game/         the fisherman: headless game, rules, hunters, PixiJS view
-  story/        the story page's script
-index.html      the story, at the root
+  story/        the home page's script
+index.html      the home page: a card for each section
 renderers/
   index.html    the renderer benchmark
 players/
   index.html    the fisherman game
-public/story/   screenshots for the story
+public/story/   screenshots for the home page
 scripts/
   bundle-sizes.mjs   gzip size per renderer, from the Vite manifest
   score.ts           plays every hunter headless over many seeds (npm run score)

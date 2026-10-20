@@ -332,9 +332,9 @@ a:hover {
   line-height: 18px;
 }
 
-/* story page: one narrow, left-aligned column for reading */
+/* home page: the title and nav, then one card per section */
 .story {
-  width: min(590px, 100% - 32px);
+  width: min(720px, 100% - 32px);
   margin: 0 auto;
   padding: 72px 0 96px;
   font-size: 12px;
@@ -344,54 +344,33 @@ a:hover {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 72px;
-}
-.entry {
   margin-bottom: 56px;
 }
-.entry h2 {
-  margin: 0 0 12px;
-  font-size: 16px;
-  font-weight: bold;
+.pages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 32px 24px;
 }
-.entry time {
-  margin-left: 10px;
-  color: var(--dim);
-  font-weight: normal;
+.page-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.entry p {
-  margin: 0 0 12px;
-}
-.entry figure {
-  margin: 20px 0;
-}
-.entry img {
+.page-card img {
   display: block;
   width: 100%;
   height: auto;
+  margin-bottom: 4px;
   outline: 1px solid var(--faint);
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
-.entry figcaption {
-  margin-top: 6px;
-  color: var(--dim);
+.page-card:hover img {
+  outline-color: var(--dim);
 }
-.entry-link {
-  margin-top: 16px;
-}
-.story-table {
-  margin: 4px 0 16px;
-  border-collapse: collapse;
-}
-.story-table th {
-  color: var(--dim);
-  font-weight: normal;
-  text-align: left;
-  padding: 0 32px 4px 0;
-}
-.story-table td {
-  padding: 2px 32px 2px 0;
+.page-card b {
+  color: var(--fg);
+  font-size: 14px;
 }
 
 /* fisherman page */

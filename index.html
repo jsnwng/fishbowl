@@ -12,167 +12,19 @@
         <nav class="subnav" data-root="" aria-label="sections"></nav>
       </header>
 
-      <!-- each entry is one self-contained article: copy a block to add the next one.
-           all hidden for now (2026-10-19); remove `hidden` from an entry to show it again. -->
-
-      <article class="entry" id="october-14" hidden>
-        <h2>October 14 <time datetime="2026-10-14">2026-10-14</time></h2>
-        <p>
-          I was laid off from Netflix on October 14, two months shy of a seven-year tenure. I spent it
-          building internal UIs for the people inside.
-        </p>
-        <p>
-          All of it lived behind the company firewall, in systems no one outside will ever see. A few of
-          those projects felt like the future. Plenty of them felt like plumbing. Plumbing is the
-          kind of work nobody notices until it breaks. When you do it right, nothing happens. I spent a
-          lot of those years making sure nothing happened, and I got pretty good at it.
-        </p>
-        <p>
-          The LinkedIn messages started almost right away. Some were referrals, others offered words of
-          encouragement and invitations to catch up. People asked what was next, then told me I'd be
-          fine. Maybe. Then one friend checked in to see how I was doing and asked if I could help with
-          something: <em>how do you build a web game?</em>
-        </p>
-      </article>
-
-      <article class="entry" id="renderers" hidden>
-        <h2>Renderers <time datetime="2026-10-16">2026-10-16</time></h2>
-        <p>
-          A web game has a lot of moving parts, and I'd never built one. So I started where my friend
-          was in their project: figuring out how to draw it. There's no shortage of 2D renderers, or of benchmark posts comparing them, but each post tests something
-          different on different hardware, and some are written by the people who make the library. All
-          of that can be overwhelming, even paralyzing, for someone just starting out. I wanted numbers I
-          could reproduce, measured against what my friend actually needed to build, so I built a test.
-        </p>
-        <p>
-          The test is <a href="renderers/">fishbowl</a>, an 8-bit aquarium. It's a contrived example:
-          nobody, my friend included, is building a fishing game. An aquarium is just an easy way to put a
-          lot of small sprites on screen at once, which is most of what a 2D game asks of its renderer.
-          The same seeded fish swim
-          through the same frames while six renderers take turns drawing them: raw Canvas2D, raw WebGL,
-          PixiJS, Konva, Two.js and p5.js. Each renderer is a small adapter behind the same interface,
-          and one loop drives all of them, so the renderer is the only thing that changes between runs.
-        </p>
-        <p>
-          The fish move one fixed step per frame from a seeded random number generator, so every
-          renderer is handed identical frames. The ramp test starts at 500 fish and adds a quarter more
-          every two seconds, until the slowest 5% of frames take longer than 18 ms. Then it reports the
-          last count that held.
-        </p>
-        <figure>
+      <!-- one card per section: copy a block to add the next one -->
+      <div class="pages">
+        <a class="page-card" href="renderers/">
           <img src="story/renderers.png" width="320" height="180" alt="Pixel-art fish crowding an aquarium with seaweed, rocks and a treasure chest" />
-          <figcaption>The renderers page, about 2,200 fish in.</figcaption>
-        </figure>
-        <p>
-          On my machine, an RTX 3080 Ti with a 240 Hz display, WebGL held about 166,000 fish. At that
-          point the bottleneck was the fish simulation, not the drawing. PixiJS held about 28,000,
-          Canvas2D and p5.js about 4,700, Konva about 1,500, and Two.js stayed under 500.
-        </p>
-        <p>
-          Despite the numbers, my friend went with PixiJS. It's far easier to understand and review than
-          raw WebGL, and 28,000 sprites is more than most games will ever need. The benchmark answered
-          which renderer is fastest, but that was never really the question. The question was what their
-          project needed: how much it had to draw, and who would be building and maintaining it. Once
-          that was clear, the choice was easy. In my experience that's true of most software projects.
-          Building is rarely the hard part. Agreeing on what you're building is.
-        </p>
-        <p class="entry-link"><a href="renderers/">Try the renderers &gt;</a></p>
-      </article>
-
-      <article class="entry" id="players" hidden>
-        <h2>Players <time datetime="2026-10-17">2026-10-17</time></h2>
-        <p>
-          Drawing was only half of it. The next question from my friend was the natural one: "So how do
-          I make it a game?" Neither of us had built one before, so this part was as much about learning
-          as testing and explaining it to friends along the way. The first thing I had to understand was how game AI
-          usually works. Most enemies and bots in games aren't trained models at all. They're heuristics:
-          rules a developer writes by hand, like a state machine that switches between patrol, chase and
-          attack, or a list of priorities that picks the most useful action. Designers often make them
-          worse on purpose, with reaction delays or missed shots, because an opponent with perfect aim
-          isn't fun to play against. Learned models do show up, like the driving AI in Forza and Gran
-          Turismo, but they're the exception.
-        </p>
-        <p>
-          That raised a question of my own. Small AI models can now run in the browser, on the player's
-          own machine. Could a browser game hand some of its decisions to one, and what would that cost?
-          To find out, I needed a game where decisions matter, so the bowl got a fisherman. Like the
-          aquarium, it's a stand-in rather than a game anyone is building: small enough to understand
-          completely, with just enough rules that the decisions count.
-        </p>
-        <figure>
-          <img src="story/players-cast.png" width="320" height="180" alt="A pixel-art fisherman in a small boat casting a line into the aquarium, with a splash ring where the hook lands" />
-          <figcaption>A cast landing. Fish too close to the splash bolt.</figcaption>
-        </figure>
-        <p>
-          Anything that fishes is a player: you, a bot following hand-written rules, or eventually a
-          trained model. Every player sees the same bowl and answers the same way, with cast, reel or
-          wait. The game is headless and seeded, so the same seed and the same moves always produce the
-          same run, and every player faces the same fish.
-        </p>
-        <p>
-          The rules are there so that skill pays off. A splash scares nearby fish, so you have to cast
-          where a fish is going rather than where it is. A nibble lasts about 0.4 seconds before the fish
-          takes the bait. Bait goes stale after a few seconds, so waiting in one spot stops working.
-        </p>
-        <p>
-          Simple bots turned out to be the best way to test the rules. In my first version, a bot that
-          casts in one spot and waits caught 42 fish against 45 for the hand-written heuristic, which
-          meant aiming barely mattered. Once that was fixed, the heuristic started landing fish the moment
-          its hook hit the water. The fish swam in perfectly straight lines, so its aim was simple math.
-          A real game would make the bot worse on purpose. For a fair test I made the fish less
-          predictable instead: they now change direction and depth from time to time, and leading one is
-          an estimate rather than a certainty. Over 20 seeds the heuristic averages about 14 catches, cast and wait about
-          7, and random about 1.
-        </p>
-        <figure>
-          <img src="story/players-reel.png" width="320" height="180" alt="The fisherman reeling a hooked fish up to the boat" />
-          <figcaption>One on the line.</figcaption>
-        </figure>
-        <p class="entry-link"><a href="players/">Try the players &gt;</a></p>
-      </article>
-
-      <article class="entry" id="thinking-time" hidden>
-        <h2>Thinking time <time datetime="2026-10-18">2026-10-18</time></h2>
-        <p>
-          A model doesn't answer instantly, so the game now lets a player take its time. Players are
-          asked at decision points, whenever the line changes state and every half second otherwise,
-          which comes to about 200 times per run. In real time the game keeps moving while a player
-          thinks, so a late answer can miss its moment. In turn based the game waits, which measures the
-          quality of each decision on its own.
-        </p>
-        <p>
-          To see what delay alone costs, I ran the heuristic in real time with every answer held back by
-          a fixed amount. Same decisions, 20 seeds:
-        </p>
-        <table class="story-table">
-          <thead>
-            <tr><th>Time to decide</th><th>Catches</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>Instant</td><td>About 14</td></tr>
-            <tr><td>100 ms</td><td>About 12</td></tr>
-            <tr><td>250 ms</td><td>About 7</td></tr>
-            <tr><td>500 ms or more</td><td>Almost none</td></tr>
-          </tbody>
-        </table>
-        <p>
-          A nibble only lasts 0.4 seconds, so anything slower than that loses every fish it hooks. A
-          language model running locally will usually take longer than that to respond. My guess is that
-          a model is better suited to slower choices, like where to cast and when to move on, while fixed
-          code handles the reflexes. The next experiments will test that.
-        </p>
-      </article>
-
-      <article class="entry" id="next" hidden>
-        <h2>Next</h2>
-        <p>
-          I'm learning to train a small model on this game in Python. The plan is to port the game's
-          simulation, check that it matches the browser version frame for frame, teach a network to copy
-          the heuristic, and then use reinforcement learning to try to beat it. Along the way I'll be
-          working out how to watch and measure a model while it trains. After that come language models
-          running in the browser.
-        </p>
-      </article>
+          <b>renderers</b>
+          <span>the same bowl drawn by six 2D renderers, pushed until the frame rate breaks.</span>
+        </a>
+        <a class="page-card" href="players/">
+          <img src="story/players.png" width="320" height="180" alt="A pixel-art fisherman in a small boat reeling in a hooked fish" />
+          <b>players</b>
+          <span>a fishing game played by a heuristic, a trained model, you, and two baselines.</span>
+        </a>
+      </div>
     </main>
     <script type="module" src="/src/story/main.ts"></script>
   </body>
