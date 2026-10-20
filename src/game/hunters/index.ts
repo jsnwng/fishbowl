@@ -4,7 +4,6 @@ import { CloneHunter } from './clone';
 import { HeuristicHunter } from './heuristic';
 import { HumanHunter } from './human';
 import { RandomHunter } from './random';
-import { SlowHunter } from './slow';
 import { WaitHunter } from './wait';
 
 export interface HunterEntry {
@@ -41,13 +40,6 @@ export const HUNTERS: HunterEntry[] = [
     coat: { main: '#f0a020', shade: '#b06a10' },
     blurb: 'click to cast, click or space to reel. plays in real time.',
     make: () => new HumanHunter(),
-  },
-  {
-    id: 'heuristic, 1s',
-    slow: true,
-    coat: { main: '#8a8a8a', shade: '#5a5a5a' },
-    blurb: 'a test: the heuristic, but every decision takes 1 second to arrive, like a slow model. same brain, fewer catches in real time.',
-    make: () => new SlowHunter('heuristic, 1s', 1000),
   },
   {
     id: 'cast and wait',

@@ -46,7 +46,7 @@ The rules make sure casting once and waiting doesn't pay:
 - Bait goes stale after a few seconds, so you have to recast.
 - Fish change direction and depth now and then, so leading one is a guess, not a calculation.
 
-Anything that implements the `Hunter` interface in [`src/game/types.ts`](src/game/types.ts) can play: it gets an observation and returns an action. Right now that's you, a hand-written heuristic, a small neural network trained to copy it, a cast-and-wait baseline, a random baseline, and `heuristic, 1s`, a test hunter that is the heuristic with every decision delayed by a second, standing in for a slow model.
+Anything that implements the `Hunter` interface in [`src/game/types.ts`](src/game/types.ts) can play: it gets an observation and returns an action. Right now that's you, a hand-written heuristic, a small neural network trained to copy it, a cast-and-wait baseline, and a random baseline.
 
 Hunters are asked at decision points, not every tick: whenever the line changes state, and every half second otherwise. That's about 200 asks per run, few enough for a language model to keep up, and the same chances for every hunter. A hunter can answer right away or return a promise. In **real time** the game keeps going while it thinks, so a late answer can miss its moment. In **turn based** the game waits, so only the quality of the decision counts.
 
