@@ -2,10 +2,14 @@ r"""Trained chat model -> the files Transformers.js runs in the browser.
 
     .\training\.venv-export\Scripts\python.exe training\export_voice.py [model dir]
 
-Default model dir: training/voice-model (what voice.ipynb saves). Writes public/live/voice/<version>/:
+Default model dir: training/voice-model (what voice.ipynb saves). Writes training/voice-out/<version>/:
 config.json, the tokenizer, and onnx/model_q4f16.onnx, about 118 MB. The version is a hash of the
 model file, and src/live/voice-version.json tells the page which one to load. Browsers cache the
 model by its URL, so a new model needs a new one.
+
+Then upload that folder to the fishbowl-models R2 bucket under voice/ (voice/<version>/config.json
+and so on) in the Cloudflare dashboard. The page loads it from the bucket's public URL, the "host"
+in voice-version.json. The model stays out of git: it's a build output, and over GitHub's 100 MB cap.
 
 It runs in its own environment, training/.venv-export, pinned to the versions the ONNX
 exporter supports (transformers 4.49, torch 2.5, optimum-onnx). Training uses transformers 5,
@@ -31,7 +35,7 @@ import onnxruntime as ort
 HERE = Path(__file__).resolve().parent
 SRC = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE / "voice-model"
 WORK = HERE / "voice-export"
-VOICES = HERE.parent / "public" / "live" / "voice"
+VOICES = HERE / "voice-out"
 OUT = VOICES / "next"
 BASE = "HuggingFaceTB/SmolLM2-135M-Instruct"  # the tokenizer is unchanged by fine-tuning
 SYSTEM = "You write one short chat line for a pixel-art fishing stream, in the speaker's voice."  # same as voice.ipynb
@@ -143,11 +147,15 @@ shutil.rmtree(WORK, ignore_errors=True)
 import hashlib
 
 version = hashlib.sha256(q4f16.read_bytes()).hexdigest()[:10]
+VOICES.mkdir(exist_ok=True)
 for old in VOICES.iterdir():
     if old.name != "next":
         shutil.rmtree(old) if old.is_dir() else old.unlink()
 shutil.copytree(OUT, VOICES / version)  # copy, not rename: a running dev server holds the folder open on Windows
 shutil.rmtree(OUT, ignore_errors=True)
 mb = round((VOICES / version / "onnx" / "model_q4f16.onnx").stat().st_size / 1e6)
-(HERE.parent / "src" / "live" / "voice-version.json").write_text(json.dumps({"version": version, "mb": mb}) + "\n")
+vfile = HERE.parent / "src" / "live" / "voice-version.json"
+host = json.loads(vfile.read_text()).get("host", "") if vfile.exists() else ""
+vfile.write_text(json.dumps({"version": version, "mb": mb, "host": host}) + "\n")
 print(f"\nwrote {VOICES / version}")
+print("next: upload that folder to the R2 bucket under voice/, then reload the live page")

@@ -16,4 +16,4 @@ training/voice-model/
 training/.venv-export/
 training/voice-model-v1/
 training/voice-onnx/
-public/live/voice/
+training/voice-out/

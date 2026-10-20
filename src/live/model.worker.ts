@@ -4,7 +4,7 @@
 import { AutoModelForCausalLM, AutoTokenizer, env, type PreTrainedModel, type PreTrainedTokenizer } from '@huggingface/transformers';
 import { SYSTEM } from './prompt';
 
-export type ToWorker = { type: 'load'; root: string; id: string } | { type: 'line'; id: number; prompt: string };
+export type ToWorker = { type: 'load'; host: string; id: string } | { type: 'line'; id: number; prompt: string };
 export type FromWorker =
   | { type: 'progress'; loaded: number; total: number }
   | { type: 'ready'; device: string; loadMs: number }
@@ -16,13 +16,14 @@ let tokenizer: PreTrainedTokenizer | null = null;
 let model: PreTrainedModel | null = null;
 let queue = Promise.resolve();
 
-async function load(root: string, id: string) {
+async function load(host: string, id: string) {
   const t0 = performance.now();
-  // the model ships with the site (public/live/voice/), so nothing is fetched from anywhere else.
-  // root is a path like /live/: a full URL would count as remote, which is switched off
-  env.allowRemoteModels = false;
-  env.allowLocalModels = true; // off by default in browsers
-  env.localModelPath = root;
+  // The model lives in object storage (Cloudflare R2), not in the site: at 118 MB it's over
+  // GitHub's file limit, and it's a build output anyway. Files load from <host><id>/<file>.
+  env.allowLocalModels = false;
+  env.allowRemoteModels = true;
+  env.remoteHost = host;
+  env.remotePathTemplate = '{model}/';
   const files = new Map<string, { loaded: number; total: number }>();
   const progress_callback = (p: { status: string; file?: string; loaded?: number; total?: number }) => {
     if (p.status !== 'progress' || !p.file) return;
@@ -65,7 +66,7 @@ async function line(id: number, prompt: string) {
 self.onmessage = (e: MessageEvent<ToWorker>) => {
   const m = e.data;
   if (m.type === 'load') {
-    load(m.root, m.id).catch((err) => post({ type: 'error', message: String(err?.message ?? err) }));
+    load(m.host, m.id).catch((err) => post({ type: 'error', message: String(err?.message ?? err) }));
   } else {
     // one line at a time: the model is single-threaded on the GPU anyway
     queue = queue.then(() => line(m.id, m.prompt)).catch((err) => post({ type: 'error', message: String(err?.message ?? err) }));

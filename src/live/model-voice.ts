@@ -13,7 +13,9 @@ function tidy(text: string, req: LineRequest): string | null {
   t = t.replace(new RegExp(`^${req.speaker}\\s*:\\s*`, 'i'), '');
   if (!t || t.length > MAX_CHARS + 8) return null;
   // chat style, like the training lines: lowercase start, but leave "WHAT" and "I" alone
-  if (/^[A-Z][a-z]/.test(t) && !/^I\b/.test(t)) t = t[0].toLowerCase() + t.slice(1);
+  const first = t.split(/\s/)[0];
+  const shouting = first.length > 1 && first === first.toUpperCase();
+  if (/^[A-Z]/.test(t) && first !== 'I' && !first.startsWith("I'") && !shouting) t = t[0].toLowerCase() + t.slice(1);
   return t;
 }
 
@@ -31,7 +33,7 @@ export class ModelVoice implements Voice {
   private requests = new Map<number, LineRequest>();
   private nextId = 0;
 
-  constructor(root: string, onProgress: (loaded: number, total: number) => void) {
+  constructor(onProgress: (loaded: number, total: number) => void) {
     this.ready = new Promise((resolve, reject) => {
       this.worker.onmessage = (e: MessageEvent<FromWorker>) => {
         const m = e.data;
@@ -50,8 +52,8 @@ export class ModelVoice implements Voice {
         }
       };
     });
-    // public/live/voice/<version>/, written by training/export_voice.py
-    this.send({ type: 'load', root, id: `voice/${voiceVersion.version}` });
+    // voice/<version>/ in the bucket: written by training/export_voice.py, then uploaded
+    this.send({ type: 'load', host: voiceVersion.host, id: `voice/${voiceVersion.version}` });
   }
 
   line(req: LineRequest): Promise<string | null> {

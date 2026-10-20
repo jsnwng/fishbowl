@@ -68,8 +68,7 @@ async function useModel() {
     return drawVoice();
   }
   voiceEl.textContent = 'chat: loading the trained model…';
-  // public/live/voice/ is served next to this page
-  const m = new ModelVoice(new URL('./', document.baseURI).pathname, (loaded, total) => {
+  const m = new ModelVoice((loaded, total) => {
     voiceEl.textContent = `chat: loading the trained model, ${mb(loaded)}${total ? ` of ${mb(total)}` : ''}`;
   });
   try {
