@@ -111,17 +111,6 @@ toggles.forEach((t) =>
 setInterval(() => model && voice === model && drawVoice(), 2000);
 drawVoice();
 
-/**
- * Load the model without asking where it's cheap to: a desktop with WebGPU, not saving data.
- * Phones get the button instead, so nobody's data plan pays for 118 MB they didn't ask for, and
- * low-memory devices don't risk the tab.
- */
-function autoLoadOk() {
-  const nav = navigator as Navigator & { connection?: { saveData?: boolean }; userAgentData?: { mobile?: boolean } };
-  if (!('gpu' in navigator) || nav.connection?.saveData) return false;
-  const phone = nav.userAgentData?.mobile ?? (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 700);
-  return !phone;
-}
 
 // ---- bowl scale and you ----
 new ResizeObserver(() => {
@@ -261,7 +250,7 @@ async function boot() {
   start();
   requestAnimationFrame(frame);
   // the game first, then the model: give the stream a moment to get going
-  if (autoLoadOk()) setTimeout(() => void useModel(), 1500);
+  setTimeout(() => void useModel(), 1500);
 }
 
 void boot();
