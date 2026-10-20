@@ -23,7 +23,16 @@
             <span id="viewers"></span>
           </div>
           <div class="chat-log" id="chat-log" aria-live="polite"></div>
-          <p class="chat-foot" id="voice">voices: canned lines</p>
+          <div class="chat-foot">
+            <div class="voice-row">
+              <span class="voice-label" id="voice-label">chat written by</span>
+              <div class="voice-toggle" role="radiogroup" aria-labelledby="voice-label">
+                <button type="button" role="radio" data-voice="canned">hand-written</button>
+                <button type="button" role="radio" data-voice="model">trained model</button>
+              </div>
+            </div>
+            <p class="voice-status" id="voice-status" aria-live="polite"></p>
+          </div>
         </aside>
       </div>
 

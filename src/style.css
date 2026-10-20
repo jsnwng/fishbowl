@@ -567,8 +567,49 @@ a:hover {
   color: var(--dim);
 }
 .chat-foot {
-  margin: 0;
-  padding: 6px 8px;
+  padding: 6px 8px 7px;
   border-top: 1px solid var(--faint);
+}
+.voice-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.voice-label {
   color: var(--dim);
+}
+/* a two-way choice, boxed like the player picker */
+.voice-toggle {
+  display: flex;
+}
+.voice-toggle button {
+  flex: 1;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--dim);
+  font: bold 12px 'Courier New', Courier, monospace;
+  cursor: pointer;
+}
+.voice-toggle button:hover {
+  color: var(--fg);
+}
+.voice-toggle button.on {
+  border-color: #666;
+  color: var(--fg);
+}
+.voice-toggle button:focus-visible {
+  outline: 1px solid var(--aqua);
+  outline-offset: 1px;
+}
+/* one line, always: the status changes as the model loads and runs, and the chat shouldn't jump */
+.voice-status {
+  margin: 4px 0 0;
+  color: var(--dim);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }

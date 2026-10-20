@@ -51,25 +51,42 @@ function react(ms: Moment[]) {
   for (const m of ms) director.react(m, ctx, entry.human ? null : entry.id, viewersOf(entry));
 }
 
-// ---- the chat model: hand-written lines until you load the trained one ----
-const voiceEl = $<HTMLParagraphElement>('voice');
-const mb = (n: number) => `${Math.round(n / 1e6)} MB`;
+// ---- the chat model: hand-written lines until the trained one loads ----
+const statusLine = $<HTMLParagraphElement>('voice-status');
+const toggles = document.querySelectorAll<HTMLButtonElement>('[data-voice]');
+const mb = (n: number) => `${Math.round(n / 1e6)}`;
+let loading: string | null = null; // the status while the model downloads
+let failed = '';
 function drawVoice() {
-  if (voice === canned) {
-    voiceEl.innerHTML = `chat written by: hand-written lines · <a href="#" data-act="model">switch to the trained model (${ModelVoice.mb} MB)</a>`;
-  } else if (model) {
-    const ms = model.msPerLine;
-    voiceEl.innerHTML = `chat written by: a model trained on this game, running on ${model.device === 'webgpu' ? 'your gpu' : 'your cpu'}${ms ? ` · ${Math.round(ms)} ms a line` : ''} · <a href="#" data-act="canned">switch to hand-written</a>`;
+  const on = voice === canned ? 'canned' : 'model';
+  toggles.forEach((t) => {
+    const checked = t.dataset.voice === on;
+    t.classList.toggle('on', checked);
+    t.setAttribute('aria-checked', String(checked));
+  });
+  let status: string;
+  if (failed) status = `the trained model couldn't load here: ${failed}`;
+  else if (loading) status = loading;
+  else if (voice === canned) status = model ? 'picked from a hand-written list' : `picked from a hand-written list · model is ${ModelVoice.mb} MB`;
+  else {
+    // round to 50 ms so the line doesn't twitch with every message
+    const ms = model ? Math.round(model.msPerLine / 50) * 50 : 0;
+    status = `${ModelVoice.mb} MB · your ${model?.device === 'webgpu' ? 'gpu' : 'cpu'}${ms ? ` · ~${ms} ms a line` : ''}`;
   }
+  statusLine.textContent = status;
 }
 async function useModel() {
   if (model) {
     voice = model;
     return drawVoice();
   }
-  voiceEl.textContent = 'chat written by: hand-written lines, until the trained model loads…';
+  if (loading) return;
+  failed = '';
+  loading = 'downloading the model…';
+  drawVoice();
   const m = new ModelVoice((loaded, total) => {
-    voiceEl.textContent = `chat written by: hand-written lines, loading the trained model (${mb(loaded)}${total ? ` of ${mb(total)}` : ''})`;
+    loading = `downloading the model · ${mb(loaded)}/${total ? mb(total) : ModelVoice.mb} MB`;
+    drawVoice();
   });
   try {
     await m.ready;
@@ -77,11 +94,20 @@ async function useModel() {
     voice = m;
     ui.notice(`trained model loaded in ${(m.loadMs / 1000).toFixed(1)}s`);
   } catch (err) {
-    voiceEl.textContent = `chat written by: hand-written lines. the trained model couldn't load here (${(err as Error).message}).`;
-    return;
+    failed = (err as Error).message;
   }
+  loading = null;
   drawVoice();
 }
+toggles.forEach((t) =>
+  t.addEventListener('click', () => {
+    if (t.dataset.voice === 'model') void useModel();
+    else {
+      voice = canned;
+      drawVoice();
+    }
+  }),
+);
 setInterval(() => model && voice === model && drawVoice(), 2000);
 drawVoice();
 
@@ -216,11 +242,7 @@ document.addEventListener('click', (e) => {
   const el = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
   if (!el) return;
   if (el.tagName === 'A') e.preventDefault();
-  if (el.dataset.act === 'model') void useModel();
-  else if (el.dataset.act === 'canned') {
-    voice = canned;
-    drawVoice();
-  } else if (el.dataset.act === 'start') start();
+  if (el.dataset.act === 'start') start();
   else if (el.dataset.act === 'stop') stop();
   else if (el.dataset.act === 'seed') {
     seed++;
