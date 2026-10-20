@@ -464,3 +464,111 @@ a:hover {
 .explain + .row {
   margin-top: 4px;
 }
+
+/* live page: the bowl as a stream, chat beside it */
+.col.live {
+  width: min(980px, 100% - 32px);
+}
+.live .bowl-controls,
+.live .bench {
+  max-width: 640px;
+}
+.stream {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 16px;
+}
+@media (max-width: 860px) {
+  .stream {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.live-tag {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 2;
+  padding: 1px 6px;
+  background: var(--red);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: bold;
+}
+/* the streamer's speech bubble, in the sky left of the fisherman. the sky is the top 26 of 180
+   bowl pixels, so it's two short lines at most, sized with the bowl. */
+.bubble {
+  position: absolute;
+  z-index: 2;
+  right: calc(100% - 144px * var(--s));
+  top: calc(13px * var(--s));
+  transform: translateY(-50%);
+  max-width: calc(110px * var(--s));
+  margin: 0;
+  padding: 2px 6px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: clamp(9px, calc(5.4px * var(--s)), 13px);
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.bubble[hidden] {
+  display: none;
+}
+.bubble-tail {
+  /* a square tail pointing right, at the fisherman */
+  position: absolute;
+  z-index: 2;
+  left: calc(144px * var(--s) - 1px);
+  top: calc(13px * var(--s));
+  transform: translateY(-50%);
+  border: calc(2.5px * var(--s)) solid transparent;
+  border-right: 0;
+  border-left-color: var(--fg);
+}
+.chat {
+  display: flex;
+  flex-direction: column;
+  /* size: the bowl sets the row's height, and chat scrolls inside it instead of growing it */
+  contain: size;
+  border: 1px solid var(--faint);
+  font-size: 12px;
+}
+@media (max-width: 860px) {
+  .chat {
+    height: 220px;
+  }
+}
+.chat-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--faint);
+}
+.chat-head span {
+  color: var(--dim);
+}
+.chat-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 8px;
+}
+.msg {
+  margin: 0 0 6px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.msg.notice {
+  color: var(--dim);
+}
+.chat-foot {
+  margin: 0;
+  padding: 6px 8px;
+  border-top: 1px solid var(--faint);
+  color: var(--dim);
+}

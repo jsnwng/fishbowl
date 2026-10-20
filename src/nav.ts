@@ -5,6 +5,7 @@
 export const SECTIONS = [
   { id: 'renderers', href: 'renderers/' },
   { id: 'players', href: 'players/' },
+  { id: 'live', href: 'live/' },
 ];
 
 /**

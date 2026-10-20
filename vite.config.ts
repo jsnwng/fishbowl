@@ -29,7 +29,15 @@ const builds: Record<string, BuildOptions> = {
     chunkSizeWarningLimit: 2000,
     rollupOptions: { input: resolve(root, 'players/index.html') },
   },
-  // `vite build --mode story`: the story page at the root.
+  // `vite build --mode live`: the fisherman streaming, with chat.
+  live: {
+    emptyOutDir: false,
+    manifest: false,
+    assetsDir: 'live/assets',
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: { input: resolve(root, 'live/index.html') },
+  },
+  // `vite build --mode story`: the home page at the root.
   story: {
     emptyOutDir: false,
     manifest: false,
@@ -46,6 +54,7 @@ const REDIRECTS: Record<string, string> = {
   '/fisherman/index.html': '/players/',
   '/renderers': '/renderers/',
   '/players': '/players/',
+  '/live': '/live/',
 };
 const redirect: Connect.NextHandleFunction = (req, res, next) => {
   const [path, query] = (req.url ?? '').split('?');

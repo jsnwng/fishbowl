@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>fishbowl · live</title>
+  </head>
+  <body>
+    <main class="col live">
+      <h1 class="title"><a href="../">fishbowl</a></h1>
+      <nav class="subnav" data-page="live" data-root="../" aria-label="sections"></nav>
+      <p class="status" id="status">loading…</p>
+
+      <div class="stream">
+        <div class="bowl" id="bowl">
+          <span class="live-tag" aria-hidden="true">live</span>
+          <p class="bubble" id="bubble" role="status" hidden></p>
+          <span class="bubble-tail" id="bubble-tail" aria-hidden="true" hidden></span>
+        </div>
+        <aside class="chat" aria-label="stream chat">
+          <div class="chat-head">
+            <b>stream chat</b>
+            <span id="viewers"></span>
+          </div>
+          <div class="chat-log" id="chat-log" aria-live="polite"></div>
+          <p class="chat-foot" id="voice">voices: canned lines</p>
+        </aside>
+      </div>
+
+      <section class="group bowl-controls" aria-label="streamer">
+        <div class="picker-head">
+          <span class="picker-title" id="hunter-title">who's streaming</span>
+          <button class="info" id="hunter-info-btn" type="button" aria-expanded="true" aria-controls="hunter-info" title="who are these?">i</button>
+        </div>
+        <div id="hunter" aria-labelledby="hunter-title"></div>
+        <div class="spark-info small hunter-info" id="hunter-info"></div>
+        <div class="bench-buttons">
+          <button type="button" class="btn primary" id="start-btn" data-act="start">start</button>
+          <button type="button" class="btn secondary" data-act="seed">next seed</button>
+        </div>
+      </section>
+
+      <section class="group bench" aria-labelledby="what-title">
+        <h2 class="bench-title" id="what-title">what's going on</h2>
+        <div class="about small explain">
+          <p>
+            the fisherman is streaming, out at the bowl alone. whoever you pick does the fishing and
+            talks in the speech bubble. everyone else watches from chat, each in its own voice, and
+            says what they'd have cast at instead. those opinions are real: every viewer sees the
+            same bowl and makes its own pick.
+          </p>
+          <p>
+            for now every line is hand-written. next, a small language model trained on this game
+            writes them instead, running in your browser.
+          </p>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/src/live/main.ts"></script>
+  </body>
+</html>
