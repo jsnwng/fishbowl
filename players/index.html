@@ -67,20 +67,20 @@
           <p>
             anything that fishes is a hunter. every tick it sees the bowl (where the fish are,
             what they're worth, the hook, the bait) and answers cast, reel or wait. right now
-            there's a hand-written heuristic, you, and two baselines: one that casts in the same
-            spot every time and waits, and one that acts at random.
+            there's a hand-written heuristic, a small neural network trained to copy it, you, and
+            two baselines: one that casts in the same spot every time and waits, and one that acts
+            at random.
           </p>
           <p>
             the rules are there so waiting around doesn't pay. splashes scare fish, a nibble only
             lasts about 0.4s, and bait goes stale. fish also change direction and depth now and
             then, so leading one is a good guess, not a sure thing. over 20 seeds the heuristic
-            averages about 14 catches, cast and wait about 7, random about 1.
+            averages about 14 catches, the clone about 14, cast and wait about 7, random about 1.
           </p>
           <p>
             the game itself is headless and seeded. the same seed and the same moves always give
-            the same run, so every hunter faces the same fish. next up: a small model trained on
-            this game, then language models running in the browser, scored on catches and on
-            what they cost per frame.
+            the same run, so every hunter faces the same fish. next up: language models running
+            in the browser, scored on catches and on what they cost per frame.
           </p>
         </div>
       </section>

@@ -1,5 +1,6 @@
 import type { Coat } from '../art';
 import type { Hunter } from '../types';
+import { CloneHunter } from './clone';
 import { HeuristicHunter } from './heuristic';
 import { HumanHunter } from './human';
 import { RandomHunter } from './random';
@@ -26,6 +27,13 @@ export const HUNTERS: HunterEntry[] = [
     coat: { main: '#d8402a', shade: '#962a1a' },
     blurb: "hand-written rules, no learning. picks the fish worth the most per second, casts where it's headed, and reels the instant something bites.",
     make: () => new HeuristicHunter(),
+  },
+  {
+    id: 'clone',
+    coat: { main: '#2a7ad8', shade: '#1a4e96' },
+    blurb:
+      "a small neural network that learned by watching the heuristic play 160 games. it decides when to cast and which fish to go after, and the heuristic's aiming code drops the hook. about 7,300 numbers, running in your browser.",
+    make: () => new CloneHunter(),
   },
   {
     id: 'you',

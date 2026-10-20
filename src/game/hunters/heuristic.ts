@@ -45,24 +45,28 @@ export class HeuristicHunter implements Hunter {
     let best: { x: number; y: number; value: number } | null = null;
     for (const f of obs.fish) {
       if (f.scared) continue;
-      const plan = this.leadFor(f, obs);
+      const plan = leadFor(f, obs);
       if (plan && (!best || plan.value > best.value)) best = plan;
     }
     return best ? { type: 'cast', x: best.x, y: best.y } : null;
   }
+}
 
-  /** Where to drop the hook so this fish swims into it, and what that's worth per tick. */
-  private leadFor(f: FishView, obs: Observation) {
-    const dx = f.x - obs.rod.x;
-    const dy = f.y - obs.rod.y;
-    const castTicks = RULES.castBaseTicks + Math.sqrt(dx * dx + dy * dy) * RULES.castTicksPerPx;
-    const dir = f.vx > 0 ? 1 : -1;
-    const lead = RULES.splashRadius * SPECIES_RULES[f.species].skittish + LEAD_GAP;
-    const x = f.x + f.vx * castTicks + dir * lead;
-    if (x < 8 || x > WIDTH - 8) return null; // it'll turn at the glass first
-    const y = Math.max(WATERLINE + 6, f.y);
-    const swimTicks = lead / Math.max(0.1, Math.abs(f.vx));
-    const value = f.points / (castTicks + swimTicks + RULES.reelTicks);
-    return { x, y, value };
-  }
+/**
+ * Where to drop the hook so this fish swims into it, and what that's worth per tick.
+ * Null if the fish will turn at the glass first. The clone uses this too: it picks the
+ * fish, and this does the aiming.
+ */
+export function leadFor(f: FishView, obs: Observation) {
+  const dx = f.x - obs.rod.x;
+  const dy = f.y - obs.rod.y;
+  const castTicks = RULES.castBaseTicks + Math.sqrt(dx * dx + dy * dy) * RULES.castTicksPerPx;
+  const dir = f.vx > 0 ? 1 : -1;
+  const lead = RULES.splashRadius * SPECIES_RULES[f.species].skittish + LEAD_GAP;
+  const x = f.x + f.vx * castTicks + dir * lead;
+  if (x < 8 || x > WIDTH - 8) return null; // it'll turn at the glass first
+  const y = Math.max(WATERLINE + 6, f.y);
+  const swimTicks = lead / Math.max(0.1, Math.abs(f.vx));
+  const value = f.points / (castTicks + swimTicks + RULES.reelTicks);
+  return { x, y, value };
 }

@@ -6,6 +6,8 @@ encode() is Jason's, from explore.ipynb. It's copied here so every notebook and 
 If you change encode(), retrain: a model only understands the layout it was trained on.
 """
 
+import math
+
 from fishing_env import HEIGHT, REEL, WAIT, WIDTH, cast
 
 LINE_STATES = ["idle", "casting", "waiting", "nibble", "reeling"]
@@ -35,10 +37,7 @@ def encode(obs):
 
     # the K nearest fish, measured from the hook (or the rod while the line is in), 6 numbers each
     start = obs["hook"] or obs["rod"]
-    nearest = sorted(
-        obs["fish"],
-        key=lambda f: (f["x"] - start["x"]) ** 2 + (f["y"] - start["y"]) ** 2,
-    )[:K]
+    nearest = nearest_fish(obs)
     for f in nearest:
         features.append((f["x"] - start["x"]) / WIDTH)
         features.append((f["y"] - start["y"]) / HEIGHT)
@@ -50,6 +49,48 @@ def encode(obs):
         features += [0.0] * 6
 
     return features
+
+
+def nearest_fish(obs):
+    """The K fish encode() describes, in the same order: nearest the hook, or the rod while the line is in."""
+    start = obs["hook"] or obs["rod"]
+    return sorted(
+        obs["fish"],
+        key=lambda f: (f["x"] - start["x"]) ** 2 + (f["y"] - start["y"]) ** 2,
+    )[:K]
+
+
+# The hands: where to drop the hook so a fish swims into it. This is the heuristic's
+# leadFor() from src/game/hunters/heuristic.ts, line for line, so the network only has to
+# choose *which* fish. The numbers are copied from src/game/rules.ts; if those change, change these.
+WATERLINE = 26
+CAST_BASE_TICKS = 20
+CAST_TICKS_PER_PX = 0.25
+SPLASH_RADIUS = 22
+LEAD_GAP = 4
+SKITTISH = [1, 1, 1.3, 0.8, 1.5]  # by species
+
+
+def lead_for(f, obs):
+    """The (x, y) to cast at so fish f swims into the hook, or None if it'll turn at the glass first."""
+    dx = f["x"] - obs["rod"]["x"]
+    dy = f["y"] - obs["rod"]["y"]
+    cast_ticks = CAST_BASE_TICKS + math.sqrt(dx * dx + dy * dy) * CAST_TICKS_PER_PX
+    direction = 1 if f["vx"] > 0 else -1
+    lead = SPLASH_RADIUS * SKITTISH[f["species"]] + LEAD_GAP
+    x = f["x"] + f["vx"] * cast_ticks + direction * lead
+    if x < 8 or x > WIDTH - 8:
+        return None
+    return x, max(WATERLINE + 6, f["y"])
+
+
+def target_slot(obs, action):
+    """Which of nearest_fish(obs) a teacher cast was aimed at: 0..K-1, or -1 if none of them."""
+    for j, f in enumerate(nearest_fish(obs)):
+        p = lead_for(f, obs)
+        if p and abs(p[0] - action["x"]) < 1e-6 and abs(p[1] - action["y"]) < 1e-6:
+            return j
+    return -1
 
 
 # Actions as numbers. A network can't output a dict either, so an action is split in two:
