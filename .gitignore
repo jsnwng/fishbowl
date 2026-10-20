@@ -12,3 +12,4 @@ training/data/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+training/voice-model/

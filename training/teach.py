@@ -7,6 +7,12 @@ hand-written lines as examples. Writes training/data/lines.jsonl, one line per r
     .\training\.venv\Scripts\python.exe training\teach.py            all of them
     .\training\.venv\Scripts\python.exe training\teach.py --limit 50 a pilot
 
+The lines the voice trained on came from two passes, merged:
+
+    teach.py --out training/data/lines_full.jsonl           three shapes per moment (keeps the longer two)
+    teach.py --short --out training/data/lines_short.jsonl  quick reactions, with hints for the moment
+    teach.py --merge                                        -> training/data/lines.jsonl
+
 It keeps the GPU busy while it runs (about 2-3s per moment). Stop it any time: rerunning picks
 up where it left off. At the end the model is unloaded so the GPU is free again.
 """
@@ -35,10 +41,52 @@ You are "{speaker}". Who you are: {persona}
 What just happened:
 {prompt}
 
+How you type: {style}
+
 Lines in your voice for this kind of moment:
 {examples}
 
-Write {n} new lines for this exact moment, in your voice. Make them different from the examples and from each other, and stick to what just happened. Only use numbers that appear in what just happened; don't make up stats. Each under {max} characters. No emoji, no hashtags, no quotes, no @mentions. One line each, nothing else."""
+Write {n} new lines for this exact moment, in your voice, each a different shape, like real stream chat:
+1. a very short reaction, one to three words
+2. a short line
+3. a full sentence, or a question
+
+Make them different from the examples and from each other, and stick to what just happened. Only use numbers that appear in what just happened; don't make up stats. Each under {max} characters. No emoji, no hashtags, no quotes, no @mentions. One line each, nothing else."""
+
+# How each voice types, for the teacher only: this is what gives short lines their own flavor.
+STYLES = {
+    "heuristic": 'clipped and exact, like a readout. short ones are verdicts like "suboptimal." or "+5." never says lol, never shouts.',
+    "model": 'eager and polite. exclamation marks, the occasional question ("was that right?"), mentions the heuristic a lot. short ones like "nice!" or "noted!"',
+    "cast and wait": 'unhurried and folksy. full calm sentences, never shouts. short ones like "patience." or "there it is."',
+    "random": 'lowercase, chaotic, off topic. shouts in caps when excited ("WHAT", "NO WAY"), says lol, gg, oof, and random non sequiturs.',
+}
+
+# --short: only quick reactions, with hints that fit the moment. The first full run's short
+# lines collapsed onto a few favorites ("oof" 162 times), so these are asked for on their own.
+SHORT_PROMPT = """You write chat lines for a tiny pixel-art fishing game styled like a live stream. One fisherman is out on the bowl streaming; the other fishermen watch and type in chat.
+
+You are "{speaker}". Who you are: {persona}
+{role}
+How you type: {style}
+
+What just happened:
+{prompt}
+
+Write {n} different very short reactions to this, one to three words each, the way people react in stream chat. For a moment like this, people type things like: {hints}. Use those or your own, in your voice. Don't use any of these, they're worn out: {avoid}. No emoji, no hashtags, no quotes. One per line, nothing else."""
+
+SHORT_HINTS = {
+    "start": "hi, first, hello, here we go, lets go",
+    "cast": "hmm, bold, ok, sure, risky",
+    "cast_same": "agreed, same, good pick, yep",
+    "cast_diff": "hmm, nope, bold, really?, why",
+    "scared": "yikes, SPLASH, bye fish, too close",
+    "catch": "nice, WHAT, lets go, clean, ez, got one",
+    "stolen": "rip, nooo, so close, unlucky",
+    "empty": "lol, nothing, rip, empty, again",
+    "dry": "zzz, any day now, still nothing, hmm",
+    "end": "gg, gg wp, GG, good run, again",
+}
+WORN_OUT = "oof, inefficient, nice!, oh no!, there it is, suboptimal, acceptable, noted!, optimal, steady"
 
 ROLES = {
     "streamer": "You are the one streaming. Say it out loud to your chat, in the first person.",
@@ -46,16 +94,33 @@ ROLES = {
 }
 
 
-def ask(moment):
-    prompt = PROMPT.format(
+def ask(moment, short=False):
+    if short:
+        return generate(
+            SHORT_PROMPT.format(
+                speaker=moment["speaker"],
+                persona=moment["persona"],
+                style=STYLES[moment["speaker"]],
+                role=ROLES[moment["role"]],
+                prompt=moment["prompt"],
+                n=PER_MOMENT,
+                hints=SHORT_HINTS[moment["slot"]],
+                avoid=WORN_OUT,
+            )
+        )
+    return generate(PROMPT.format(
         speaker=moment["speaker"],
         persona=moment["persona"],
+        style=STYLES[moment["speaker"]],
         role=ROLES[moment["role"]],
         prompt=moment["prompt"],
         examples="\n".join(f"- {e}" for e in moment["examples"]),
         n=PER_MOMENT,
         max=MAX_CHARS,
-    )
+    ))
+
+
+def generate(prompt):
     body = json.dumps(
         {
             "model": TEACHER,
@@ -76,38 +141,58 @@ def clean(text, examples):
         line = re.sub(r"^\s*(?:[-*•]|\d+[.)])\s*", "", raw).strip().strip('"').strip()
         line = line.replace("’", "'").replace("‘", "'").replace("“", "").replace("”", "")
         line = line.replace("—", " - ").replace("–", "-").replace("…", "...")
-        if not (3 <= len(line) <= MAX_CHARS + 10):
+        if not (2 <= len(line) <= MAX_CHARS + 10):  # "gg" is a whole line
             continue
         if any(ord(c) > 126 for c in line) or "#" in line or "@" in line:
             continue
-        if not line.startswith(("I ", "I'")):
-            line = line[0].lower() + line[1:]  # chat style: lowercase, like the hand-written lines
+        if line[:1].isupper() and line[1:2].islower() and not line.startswith(("I ", "I'")):
+            line = line[0].lower() + line[1:]  # chat style lowercase, but leave "WHAT" and "I" alone
         if line.lower() in (e.lower() for e in examples) or line.lower() in (o.lower() for o in out):
             continue
         out.append(line)
     return out[:PER_MOMENT]
 
 
+def merge():
+    """The full pass's longer lines plus the short pass's quick reactions -> lines.jsonl."""
+    read = lambda name: [json.loads(l) for l in (DATA / name).read_text(encoding="utf-8").splitlines() if l.strip()]
+    longer = [r for r in read("lines_full.jsonl") if len(r["line"].split()) > 3]
+    short = read("lines_short.jsonl")
+    rows = sorted(longer + short, key=lambda r: r["id"])
+    LINES.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    print(f"{len(longer)} longer lines + {len(short)} short reactions = {len(rows)} in {LINES.name}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=0, help="only the first N moments")
     parser.add_argument("--workers", type=int, default=2, help="requests in flight at once")
+    parser.add_argument("--moments", type=Path, default=MOMENTS, help="moments to read")
+    parser.add_argument("--out", type=Path, default=LINES, help="lines to write")
+    parser.add_argument("--short", action="store_true", help="only very short reactions (see SHORT_PROMPT)")
+    parser.add_argument("--merge", action="store_true", help="build lines.jsonl from the full and short passes")
     args = parser.parse_args()
+    if args.merge:
+        return merge()
+    LINES_OUT = args.out
 
-    moments = [json.loads(l) for l in MOMENTS.read_text(encoding="utf-8").splitlines() if l.strip()]
+    moments = [json.loads(l) for l in args.moments.read_text(encoding="utf-8").splitlines() if l.strip()]
     if args.limit:
         moments = moments[: args.limit]
     done = set()
-    if LINES.exists():
-        done = {json.loads(l)["id"] for l in LINES.read_text(encoding="utf-8").splitlines() if l.strip()}
+    if LINES_OUT.exists():
+        done = {json.loads(l)["id"] for l in LINES_OUT.read_text(encoding="utf-8").splitlines() if l.strip()}
     todo = [m for m in moments if m["id"] not in done]
     print(f"{len(moments)} moments, {len(done)} already done, {len(todo)} to go")
 
     t0 = time.perf_counter()
     written = 0
-    with LINES.open("a", encoding="utf-8") as f, ThreadPoolExecutor(args.workers) as pool:
-        for i, (m, reply) in enumerate(zip(todo, pool.map(ask, todo))):
-            for line in clean(reply, m["examples"]):
+    with LINES_OUT.open("a", encoding="utf-8") as f, ThreadPoolExecutor(args.workers) as pool:
+        for i, (m, reply) in enumerate(zip(todo, pool.map(lambda m: ask(m, args.short), todo))):
+            lines = clean(reply, m["examples"])
+            if args.short:
+                lines = [l for l in lines if len(l.split()) <= 3]
+            for line in lines:
                 row = {k: m[k] for k in ("id", "speaker", "role", "slot", "prompt")} | {"line": line}
                 f.write(json.dumps(row) + "\n")
                 written += 1
