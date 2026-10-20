@@ -69,7 +69,7 @@ const params = new URLSearchParams(location.search);
 const phoneTest = params.has('phone');
 const forceCpu = params.has('cpu'); // try the CPU path on a desktop
 const blocked = phone && !phoneTest;
-const backend: Backend = !phone && !forceCpu && 'gpu' in navigator ? { device: 'webgpu', dtype: 'q4f16' } : { device: 'wasm', dtype: 'q8' };
+const backend: Backend = !phone && !forceCpu && 'gpu' in navigator ? { device: 'webgpu', dtype: 'q4f16' } : { device: 'wasm', dtype: 'q8', lowMemory: phone || params.has('low') };
 const sizeMb = backend.device === 'webgpu' ? ModelVoice.mb : ModelVoice.mbCpu;
 
 /**
@@ -77,7 +77,10 @@ const sizeMb = backend.device === 'webgpu' ? ModelVoice.mb : ModelVoice.mbCpu;
  * says which step it died on. On a phone there's no debugger to ask.
  */
 const CRUMBS = 'fishbowl.live.model-load';
+let crumbsDone = false; // after the first line, loading is over and nothing more is recorded
 const crumb = (stage: string) => {
+  if (crumbsDone) return;
+  if (stage === 'done') crumbsDone = true;
   try {
     localStorage.setItem(CRUMBS, JSON.stringify({ stage, at: Date.now(), backend: backend.device }));
   } catch {}
