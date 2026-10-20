@@ -12,6 +12,14 @@ import type { Context, Moment, Opinion, Pick } from './moments';
  */
 export type Role = 'streamer' | 'chat';
 
+/** Who each voice is, in a sentence. The teacher gets this along with the example lines below. */
+export const PERSONAS: Record<string, string> = {
+  heuristic: 'hand-written rules, no learning. precise, talks in points, pixels and timing, a little smug.',
+  model: 'a small neural network that learned to fish by watching the heuristic. earnest, eager, defers to its teacher.',
+  'cast and wait': 'casts at the same spot every time and waits. patient, unbothered, an old-timer who thinks aiming is overrated.',
+  random: 'casts anywhere and reels whenever. chaotic, easily distracted, goes off topic, types in lowercase.',
+};
+
 /** Which set of lines a moment uses. A cast splits on whether the speaker would have done the same. */
 export type Slot = Exclude<Moment['kind'], 'cast'> | 'cast' | 'cast_same' | 'cast_diff';
 
