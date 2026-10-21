@@ -58,13 +58,31 @@ a:hover {
   color: inherit;
 }
 
-/* the sections of the site, under the title: plain links, the current one white */
+/* the parts of the site, under the title: boxed tabs, the current one filled */
 .subnav {
-  margin-top: 10px;
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
   font-size: 12px;
 }
-.subnav a.on {
-  color: var(--fg);
+.subnav .tab {
+  padding: 5px 9px;
+  border: 1px solid var(--faint);
+  white-space: nowrap;
+}
+.subnav a.tab:hover {
+  border-color: var(--dim);
+}
+.subnav .tab.on {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+}
+.subnav .tab.soon {
+  border-style: dashed;
+  color: color-mix(in srgb, var(--dim) 60%, var(--bg));
 }
 
 .status {
@@ -344,7 +362,13 @@ a:hover {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 56px;
+  margin-bottom: 40px;
+}
+.intro {
+  max-width: 520px;
+  margin: 0 auto 48px;
+  font-size: 13px;
+  text-align: center;
 }
 .pages {
   display: grid;
@@ -365,12 +389,35 @@ a:hover {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
+/* a 2x capture with text in it (the bubble): scale it smoothly so the text stays readable */
+.page-card img.hi {
+  image-rendering: auto;
+}
 .page-card:hover img {
   outline-color: var(--dim);
 }
 .page-card b {
   color: var(--fg);
   font-size: 14px;
+}
+.page-card .part {
+  color: var(--dim);
+  font-weight: normal;
+  font-size: 12px;
+}
+/* a part that isn't built yet: a dashed box where the screenshot goes */
+.soon-box {
+  aspect-ratio: 16 / 9;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: 1px dashed var(--faint);
+  color: var(--faint);
+}
+.page-card.soon b,
+.page-card.soon span {
+  color: var(--dim);
 }
 
 /* fisherman page */

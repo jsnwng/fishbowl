@@ -1,8 +1,8 @@
 # fishbowl
 
-An 8-bit aquarium for testing things in the browser: first 2D renderers, then the players that fish in it.
+An 8-bit aquarium, built in parts toward a game where you play against a model running in your browser: first the 2D renderer, then the players that fish in it and a model trained to play, then a model that talks.
 
-**Live: [fishbowl.jsnwng.dev](https://fishbowl.jsnwng.dev/)**. The experiments are at [`/renderers/`](https://fishbowl.jsnwng.dev/renderers/) and [`/players/`](https://fishbowl.jsnwng.dev/players/).
+**Live: [fishbowl.jsnwng.dev](https://fishbowl.jsnwng.dev/)**. The parts are at [`/renderers/`](https://fishbowl.jsnwng.dev/renderers/), [`/players/`](https://fishbowl.jsnwng.dev/players/) and [`/live/`](https://fishbowl.jsnwng.dev/live/).
 
 ![Pixel-art fish swimming over seaweed, rocks and a treasure chest](docs/bowl.png)
 
@@ -121,11 +121,11 @@ src/
   runner.ts     render loop, renderer switching, run and ramp
   metrics.ts    frame stats, percentiles, heap sampling
   main.ts       renderers page wiring
-  nav.ts        the site's sections, shared by every page's header
+  nav.ts        the site's parts (pt.1, pt.2, …), shared by every page's header
   game/         the fisherman: headless game, rules, hunters, PixiJS view
   live/         the stream: moments, chat director, hand-written lines, the chat model's worker
   story/        the home page's script
-index.html      the home page: a card for each section
+index.html      the home page: a card for each part
 renderers/
   index.html    the renderer benchmark
 players/

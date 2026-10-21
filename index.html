@@ -9,21 +9,36 @@
     <main class="story">
       <header class="story-head">
         <h1 class="title">fishbowl</h1>
-        <nav class="subnav" data-root="" aria-label="sections"></nav>
+        <nav class="subnav" data-root="" aria-label="parts"></nav>
       </header>
 
-      <!-- one card per section: copy a block to add the next one -->
+      <p class="intro">
+        I'm building a game in parts, to see what a model running in your browser can do in one. Each part answers one
+        question on the way. The last part is the game itself: you against a model.
+      </p>
+
+      <!-- one card per part: copy a block to add the next one -->
       <div class="pages">
         <a class="page-card" href="renderers/">
           <img src="story/renderers.png" width="320" height="180" alt="Pixel-art fish crowding an aquarium with seaweed, rocks and a treasure chest" />
-          <b>renderers</b>
+          <b><span class="part">pt.1</span> renderers</b>
           <span>the same bowl drawn by six 2D renderers, pushed until the frame rate breaks.</span>
         </a>
         <a class="page-card" href="players/">
           <img src="story/players.png" width="320" height="180" alt="A pixel-art fisherman in a small boat reeling in a hooked fish" />
-          <b>players</b>
-          <span>a fishing game played by a heuristic, a trained model, you, and two baselines.</span>
+          <b><span class="part">pt.2</span> players</b>
+          <span>a fishing game played by a heuristic, you, two baselines, and a small model I trained to copy the heuristic.</span>
         </a>
+        <a class="page-card" href="live/">
+          <img class="hi" src="story/live.png" width="320" height="180" alt="The pixel-art fisherman casting, with a speech bubble in the sky" />
+          <b><span class="part">pt.3</span> live</b>
+          <span>the fisherman streams, and the other players backseat in chat, written by a language model I trained.</span>
+        </a>
+        <div class="page-card soon">
+          <div class="soon-box" aria-hidden="true">eventually</div>
+          <b><span class="part">pt.4</span> game</b>
+          <span>you against a model, in the same bowl.</span>
+        </div>
       </div>
     </main>
     <script type="module" src="/src/story/main.ts"></script>

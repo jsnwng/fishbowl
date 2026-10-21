@@ -1,32 +1,39 @@
 /**
- * The sections of the site, in nav order. Adding a section is one line here
- * (plus its page and build); every page's nav picks it up.
+ * The parts of the site, in order. Adding a part is one line here
+ * (plus its page and build); every page's nav picks it up. A part without
+ * an href isn't built yet: it shows faint, as a promise, not a link.
  */
-export const SECTIONS = [
-  { id: 'renderers', href: 'renderers/' },
-  { id: 'players', href: 'players/' },
-  { id: 'live', href: 'live/' },
+export const SECTIONS: { id: string; part: number; href?: string }[] = [
+  { id: 'renderers', part: 1, href: 'renderers/' },
+  { id: 'players', part: 2, href: 'players/' },
+  { id: 'live', part: 3, href: 'live/' },
+  { id: 'game', part: 4 },
 ];
 
 /**
- * Fills in `<nav class="subnav" data-page="…" data-root="…">`: one plain link per section,
- * the current one white. `data-root` is the path back to the site root from this page.
+ * Fills in `<nav class="subnav" data-page="…" data-root="…">`: one boxed tab per part,
+ * the current one filled. `data-root` is the path back to the site root from this page.
  */
 export function mountNav() {
   const nav = document.querySelector<HTMLElement>('nav.subnav');
   if (!nav) return;
   const root = nav.dataset.root ?? '';
-  const parts: Node[] = [];
-  SECTIONS.forEach((s, i) => {
-    if (i) parts.push(document.createTextNode(' · '));
-    const a = document.createElement('a');
-    a.href = root + s.href;
-    a.textContent = s.id;
-    if (s.id === nav.dataset.page) {
-      a.classList.add('on');
-      a.setAttribute('aria-current', 'page');
-    }
-    parts.push(a);
-  });
-  nav.replaceChildren(...parts);
+  nav.replaceChildren(
+    ...SECTIONS.map((s) => {
+      const tab = document.createElement(s.href ? 'a' : 'span');
+      tab.className = 'tab';
+      tab.textContent = `pt.${s.part} ${s.id}`;
+      if (!s.href) {
+        tab.classList.add('soon');
+        tab.title = 'coming eventually';
+      } else {
+        (tab as HTMLAnchorElement).href = root + s.href;
+        if (s.id === nav.dataset.page) {
+          tab.classList.add('on');
+          tab.setAttribute('aria-current', 'page');
+        }
+      }
+      return tab;
+    }),
+  );
 }
