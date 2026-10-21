@@ -658,6 +658,23 @@ a:hover {
   border-right: 0;
   border-left-color: var(--fg);
 }
+/* battle: the AI talks from under its boat, on the right. Bowl pixels are 384 wide here. */
+.battle .bubble {
+  left: calc(240px * var(--s));
+  right: auto;
+  top: calc(33px * var(--s));
+  transform: none;
+  max-width: calc(138px * var(--s));
+}
+.battle .bubble-tail {
+  /* a square tail pointing up, at the fisherman */
+  left: calc(253px * var(--s));
+  top: calc(33px * var(--s));
+  transform: translateY(-100%);
+  border: calc(2.5px * var(--s)) solid transparent;
+  border-top: 0;
+  border-bottom-color: var(--fg);
+}
 .chat {
   display: flex;
   flex-direction: column;

@@ -8,6 +8,7 @@ import { GameView } from '../game/view';
 import { mountNav } from '../nav';
 import { Hud } from './hud';
 import { Mirrored } from './mirror';
+import { BattleDirector, BattleTracker, CannedBattleVoice, battleContext, type BattleMoment, type BattleVoice } from './talk';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -17,6 +18,8 @@ const bowlEl = $<HTMLDivElement>('bowl');
 const statusEl = $<HTMLParagraphElement>('status');
 const startBtn = $<HTMLButtonElement>('start-btn');
 const recordEl = $<HTMLSpanElement>('record');
+const bubbleEl = $<HTMLParagraphElement>('bubble');
+const tailEl = $<HTMLSpanElement>('bubble-tail');
 
 const MAX_TICKS_PER_FRAME = 120; // after a stall, catch up this much and drop the rest
 const READY_MS = 1200; // READY, frozen, before the clock starts
@@ -37,6 +40,25 @@ const game = new Game(seed, BATTLE);
 const match = new Match(game, [you, makeOpponent(opponent)]);
 const view = new GameView();
 let hud: Hud;
+
+// ---- the AI talks: a line now and then, in a bubble under its boat ----
+const BUBBLE_MS = 3500;
+const canned = new CannedBattleVoice();
+let voice: BattleVoice = canned;
+const tracker = new BattleTracker();
+let bubbleTimer = 0;
+function say(text: string) {
+  bubbleEl.textContent = text;
+  bubbleEl.hidden = tailEl.hidden = false;
+  clearTimeout(bubbleTimer);
+  bubbleTimer = window.setTimeout(hush, BUBBLE_MS);
+}
+function hush() {
+  bubbleEl.hidden = tailEl.hidden = true;
+  clearTimeout(bubbleTimer);
+}
+const director = new BattleDirector(() => voice, say);
+const react = (moments: BattleMoment[]) => moments.forEach((mo) => director.react(mo, opponent.id, battleContext(game)));
 
 /** idle: fish swim, nobody fishes. ready: frozen on READY. play: the clock runs. over: the result is up. */
 type Phase = 'idle' | 'ready' | 'play' | 'over';
@@ -93,6 +115,7 @@ function start() {
   seed = newSeed();
   match.stop(seed);
   view.clear();
+  hush();
   phase = 'ready';
   phaseAt = performance.now();
   sync();
@@ -101,6 +124,7 @@ function start() {
 function stop() {
   match.stop(seed);
   view.clear();
+  hush();
   phase = 'idle';
   sync();
 }
@@ -126,6 +150,7 @@ function frame(now: number) {
     phase = 'play';
     phaseAt = now;
     acc = 0;
+    react(tracker.start());
     sync();
   }
   if (phase !== 'ready') {
@@ -138,6 +163,7 @@ function frame(now: number) {
     for (let i = 0; i < n; i++) {
       const events = match.step();
       if (events.length) view.onEvents(events, game);
+      if (game.running || events.length) react(tracker.onEvents(events, game));
       if (events.some((e) => e.type === 'end')) finished();
     }
   }

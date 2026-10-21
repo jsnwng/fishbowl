@@ -15,7 +15,10 @@
       <!-- the bowl as a window: status above, controls below -->
       <div class="window">
         <p class="titlebar" id="status">loading…</p>
-        <div class="bowl" id="bowl"></div>
+        <div class="bowl" id="bowl">
+          <p class="bubble" id="bubble" role="status" hidden></p>
+          <span class="bubble-tail" id="bubble-tail" aria-hidden="true" hidden></span>
+        </div>
         <div class="toolbar" aria-label="round">
           <button type="button" class="tool go" id="start-btn" data-act="start">▶ start</button>
           <span class="end tool-note" id="record"></span>
