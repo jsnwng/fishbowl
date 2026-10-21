@@ -5,7 +5,7 @@ import { AutoModelForCausalLM, AutoTokenizer, TextStreamer, env, type PreTrained
 import { SYSTEM } from './prompt';
 
 /** Where the model runs: the GPU with 4-bit weights, or the CPU (WebAssembly) with 8-bit ones. */
-export type Backend = { device: 'webgpu'; dtype: 'q4f16' } | { device: 'wasm'; dtype: 'q8'; lowMemory?: boolean };
+export type Backend = { device: 'webgpu'; dtype: 'q4f16' } | { device: 'wasm'; dtype: 'q8'; lowMemory?: boolean; opt?: string };
 export type ToWorker = { type: 'load'; host: string; id: string; backend: Backend } | { type: 'line'; id: number; prompt: string };
 export type FromWorker =
   | { type: 'progress'; loaded: number; total: number }
@@ -48,7 +48,11 @@ async function load(host: string, id: string, backend: Backend) {
   // prepacking (ONNX Runtime keeps a second, rearranged copy of the weights after the first run).
   const low = backend.device === 'wasm' && backend.lowMemory;
   if (low && env.backends.onnx.wasm) env.backends.onnx.wasm.numThreads = 1;
-  const session_options = low ? { enableCpuMemArena: false, enableMemPattern: false, extra: { session: { disable_prepacking: '1' } } } : undefined;
+  // and no browser-cache copy of the 137 MB file on top of the one being loaded
+  if (low) env.useBrowserCache = false;
+  const session_options: Record<string, unknown> = low ? { enableCpuMemArena: false, enableMemPattern: false, extra: { session: { disable_prepacking: '1' } } } : {};
+  // ?opt=disabled|basic|extended|all: how much ONNX Runtime rewrites the graph at load (testing memory)
+  if (backend.device === 'wasm' && backend.opt) session_options.graphOptimizationLevel = backend.opt;
   model = await AutoModelForCausalLM.from_pretrained(id, { device: backend.device, dtype: backend.dtype, progress_callback, session_options } as any);
   post({ type: 'ready', device: backend.device, loadMs: performance.now() - t0 });
 }

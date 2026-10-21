@@ -69,7 +69,7 @@ const params = new URLSearchParams(location.search);
 const phoneTest = params.has('phone');
 const forceCpu = params.has('cpu'); // try the CPU path on a desktop
 const blocked = phone && !phoneTest;
-const backend: Backend = !phone && !forceCpu && 'gpu' in navigator ? { device: 'webgpu', dtype: 'q4f16' } : { device: 'wasm', dtype: 'q8', lowMemory: phone || params.has('low') };
+const backend: Backend = !phone && !forceCpu && 'gpu' in navigator ? { device: 'webgpu', dtype: 'q4f16' } : { device: 'wasm', dtype: 'q8', lowMemory: phone || params.has('low'), opt: params.get('opt') ?? undefined };
 const sizeMb = backend.device === 'webgpu' ? ModelVoice.mb : ModelVoice.mbCpu;
 
 /**
