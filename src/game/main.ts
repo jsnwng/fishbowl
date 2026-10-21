@@ -200,18 +200,18 @@ mountHunterPicker($('hunter'), HUNTERS, (picked: HunterEntry) => {
 
 function setSpeed(s: number) {
   speed = s;
-  document.querySelectorAll<HTMLAnchorElement>('[data-speed]').forEach((a) => a.classList.toggle('on', Number(a.dataset.speed) === s));
+  document.querySelectorAll<HTMLElement>('[data-speed]').forEach((b) => b.classList.toggle('on', Number(b.dataset.speed) === s));
 }
 
 function setMode(m: Mode) {
   match.mode = m;
-  document.querySelectorAll<HTMLAnchorElement>('[data-mode]').forEach((a) => a.classList.toggle('on', a.dataset.mode === m));
+  document.querySelectorAll<HTMLElement>('[data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === m));
 }
 
 function sync() {
-  startBtn.textContent = game.running ? 'stop' : 'start';
+  startBtn.textContent = game.running ? '■ stop' : '▶ start';
   startBtn.dataset.act = game.running ? 'stop' : 'start';
-  startBtn.classList.toggle('primary', !game.running);
+  startBtn.classList.toggle('go', !game.running);
   startBtn.classList.toggle('stop', game.running);
   document.body.classList.toggle('no-replay', !lastReplay);
   drawStatus();
@@ -238,6 +238,7 @@ document.addEventListener('click', (e) => {
   const el = (e.target as HTMLElement).closest<HTMLElement>('[data-act], [data-speed], [data-mode]');
   if (!el) return;
   if (el.tagName === 'A') e.preventDefault();
+  if (el.tagName === 'BUTTON') el.blur(); // so space reels instead of pressing the button again
   if (el.dataset.speed) return setSpeed(Number(el.dataset.speed));
   if (el.dataset.mode) {
     setMode(el.dataset.mode as Mode);

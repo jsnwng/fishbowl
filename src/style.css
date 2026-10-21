@@ -31,7 +31,7 @@ a {
 a:hover {
   color: var(--fg);
 }
-.busy .bowl-controls a,
+.busy .toolbar .tool,
 .busy .bench-link {
   pointer-events: none;
   color: var(--faint);
@@ -85,16 +85,90 @@ a:hover {
   color: color-mix(in srgb, var(--dim) 60%, var(--bg));
 }
 
-.status {
-  margin: 14px 0 28px;
-  font-size: 12px;
-  text-align: center;
+/* the bowl as a window: a thin title bar with the status above it, a player-style toolbar
+   below it, all inside one border */
+.window {
+  width: 100%;
+  margin-top: 24px;
+  border: 1px solid var(--faint);
+}
+.window .bowl {
+  outline: none;
+}
+.stream .window {
+  margin-top: 0;
+}
+.titlebar {
+  margin: 0;
+  height: 22px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--faint);
+  font-size: 11px;
+  line-height: 21px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-top: 1px solid var(--faint);
+}
+/* small boxed buttons: outlined = an action, filled = the setting that's on */
+.tool {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  background: none;
+  color: var(--dim);
+  font: 11px 'Courier New', Courier, monospace;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tool:hover {
+  color: var(--fg);
+  border-color: var(--dim);
+}
+.tool.on {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+}
+.tool.go {
+  border-color: var(--aqua);
+  color: var(--aqua);
+}
+.tool.stop {
+  border-color: var(--red);
+  color: var(--red);
+}
+.tool:focus-visible {
+  outline: 1px solid var(--aqua);
+  outline-offset: 1px;
+}
+/* a thin rule between groups of buttons */
+.tool-sep {
+  width: 1px;
+  height: 14px;
+  margin: 0 4px;
+  background: var(--faint);
 }
 @media (max-width: 560px) {
-  .status {
-    white-space: normal;
+  .tool-sep {
+    display: none; /* the toolbar wraps on a phone, and a rule at the end of a row looks lost */
   }
+}
+.toolbar .end {
+  margin-left: auto;
+}
+.toolbar .select {
+  width: 130px;
+  height: 22px;
+  font-size: 11px;
 }
 
 .bowl {
@@ -522,6 +596,7 @@ a:hover {
 }
 .stream {
   width: 100%;
+  margin-top: 24px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
   gap: 16px;

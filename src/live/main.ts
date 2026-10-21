@@ -224,9 +224,9 @@ document.querySelector<HTMLInputElement>(`input[name="hunter"][value="${entry.id
 describeHunter(infoEl, entry);
 
 function sync() {
-  startBtn.textContent = game.running ? 'stop' : 'start';
+  startBtn.textContent = game.running ? '■ stop' : '▶ start';
   startBtn.dataset.act = game.running ? 'stop' : 'start';
-  startBtn.classList.toggle('primary', !game.running);
+  startBtn.classList.toggle('go', !game.running);
   startBtn.classList.toggle('stop', game.running);
   drawStatus();
 }
@@ -247,6 +247,7 @@ document.addEventListener('click', (e) => {
   const el = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
   if (!el) return;
   if (el.tagName === 'A') e.preventDefault();
+  if (el.tagName === 'BUTTON') el.blur(); // so space reels instead of pressing the button again
   if (el.dataset.act === 'start') start();
   else if (el.dataset.act === 'stop') stop();
   else if (el.dataset.act === 'seed') {

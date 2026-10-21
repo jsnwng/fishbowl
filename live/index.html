@@ -11,13 +11,19 @@
     <main class="col live">
       <h1 class="title"><a href="../">fishbowl</a></h1>
       <nav class="subnav" data-page="live" data-root="../" aria-label="sections"></nav>
-      <p class="status" id="status">loading…</p>
-
       <div class="stream">
-        <div class="bowl" id="bowl">
-          <span class="live-tag" aria-hidden="true">live</span>
-          <p class="bubble" id="bubble" role="status" hidden></p>
-          <span class="bubble-tail" id="bubble-tail" aria-hidden="true" hidden></span>
+        <!-- the bowl as a window: status above, controls below -->
+        <div class="window">
+          <p class="titlebar" id="status">loading…</p>
+          <div class="bowl" id="bowl">
+            <span class="live-tag" aria-hidden="true">live</span>
+            <p class="bubble" id="bubble" role="status" hidden></p>
+            <span class="bubble-tail" id="bubble-tail" aria-hidden="true" hidden></span>
+          </div>
+          <div class="toolbar" aria-label="stream">
+            <button type="button" class="tool go" id="start-btn" data-act="start">▶ start</button>
+            <button type="button" class="tool" data-act="seed">next seed</button>
+          </div>
         </div>
         <aside class="chat" aria-label="stream chat">
           <div class="chat-head">
@@ -45,10 +51,6 @@
         </div>
         <div id="hunter" aria-labelledby="hunter-title"></div>
         <div class="spark-info small hunter-info" id="hunter-info"></div>
-        <div class="bench-buttons">
-          <button type="button" class="btn primary" id="start-btn" data-act="start">start</button>
-          <button type="button" class="btn secondary" data-act="seed">next seed</button>
-        </div>
       </section>
 
       <section class="group bench" aria-labelledby="what-title">
