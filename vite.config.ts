@@ -7,8 +7,9 @@ const root = realpathSync.native(process.cwd());
 
 // Cross-origin isolation lifts performance.now() from 100µs to ~5µs resolution, which the
 // per-frame cpu/sim timings need. Everything the app loads is same-origin, so it's safe.
-// Not on /live/: there, isolation makes the chat model's WebAssembly use shared memory, and an
-// iPhone ran out of memory loading it. /live/ doesn't need fine timers. vercel.json matches.
+// Only on the pages that time things (renderers, players). Not on /live/: there, isolation makes
+// the chat model's WebAssembly use shared memory, and an iPhone ran out of memory loading it.
+// vercel.json matches.
 const isolation = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'require-corp',
@@ -67,7 +68,7 @@ const redirect: Connect.NextHandleFunction = (req, res, next) => {
   res.end();
 };
 const isolate: Connect.NextHandleFunction = (req, res, next) => {
-  if (!(req.url ?? '').startsWith('/live/')) for (const [k, v] of Object.entries(isolation)) res.setHeader(k, v);
+  if (/^\/(renderers|players)\//.test(req.url ?? '')) for (const [k, v] of Object.entries(isolation)) res.setHeader(k, v);
   next();
 };
 const redirects: Plugin = {
