@@ -1,11 +1,11 @@
 import { Application, CanvasSource, Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
-import { ATLAS_COLS, ATLAS_ROWS, CELL_H, CELL_W, HEIGHT, WIDTH } from '../adapters/types';
+import { ATLAS_COLS, ATLAS_ROWS, CELL_H, CELL_W } from '../adapters/types';
 import { mulberry32 } from '../rng';
-import { CHEST_X, SAND_TOP } from '../scenery';
+import { chestXFor, sandTopFor } from '../scenery';
 import { BUBBLE_BASE, buildAtlas, fishSprite } from '../sprites';
-import { BOAT_X, BOAT_Y, FISHERMAN_X, FISHERMAN_Y, HAND_X, HAND_Y, buildBoat, buildFisherman, buildGameBackground, type Coat } from './art';
-import type { Game } from './game';
-import { ROD_X, ROD_Y, RULES } from './rules';
+import { buildBoat, buildFisherman, buildGameBackground, seatAt, type Coat } from './art';
+import type { Game, Line } from './game';
+import { RULES } from './rules';
 import type { GameEvent } from './types';
 
 const BUBBLES = 10;
@@ -24,10 +24,13 @@ interface Effect {
 const nearest = (resource: HTMLCanvasElement) => new CanvasSource({ resource, scaleMode: 'nearest' });
 
 /**
- * Draws a Game with PixiJS. It only reads game state; nothing here feeds back into the rules,
- * so the bob, the cast arc, bubbles and effects can change without changing any score.
+ * Draws a Game with PixiJS: the bowl at the game's size, and a fisherman, boat and line per rod.
+ * It only reads game state; nothing here feeds back into the rules, so the bob, the cast arc,
+ * bubbles and effects can change without changing any score.
  */
 export class GameView {
+  /** Drawn over everything, for a page's own layer (the battle's scoreboard). */
+  readonly overlay = new Container();
   private app = new Application();
   private frames: Texture[] = [];
   private fishSprites: Sprite[] = [];
@@ -39,12 +42,19 @@ export class GameView {
   private bubbles = { x: new Float32Array(BUBBLES), y: new Float32Array(BUBBLES), v: new Float32Array(BUBBLES), size: new Uint8Array(BUBBLES) };
   private bubbleRng = mulberry32(5);
   private lastTick = 0;
-  private man = new Sprite();
+  private men: Sprite[] = [];
+  private width = 0;
+  private sandTop = 0;
+  private chestX = 0;
 
-  async init(container: HTMLElement, game: Game, coat: Coat) {
+  async init(container: HTMLElement, game: Game, coats: Coat | Coat[]) {
+    const { width, height } = game.bowl;
+    this.width = width;
+    this.sandTop = sandTopFor(height);
+    this.chestX = chestXFor(width);
     await this.app.init({
-      width: WIDTH,
-      height: HEIGHT,
+      width,
+      height,
       antialias: false,
       resolution: 1,
       autoDensity: false,
@@ -64,7 +74,7 @@ export class GameView {
     }
 
     const stage = this.app.stage;
-    stage.addChild(new Sprite(new Texture({ source: nearest(buildGameBackground()) })));
+    stage.addChild(new Sprite(new Texture({ source: nearest(buildGameBackground(width, height)) })));
 
     for (let j = 0; j < BUBBLES; j++) {
       this.spawnBubble(j, true);
@@ -74,30 +84,44 @@ export class GameView {
     for (let i = 0; i < game.fish.length; i++) this.fishSprites.push(fishLayer.addChild(new Sprite(this.frames[0])));
 
     stage.addChild(this.line);
-    stage.addChild(this.man);
-    this.man.position.set(FISHERMAN_X, FISHERMAN_Y);
-    this.setCoat(coat);
-    const rod = stage.addChild(new Graphics());
-    rod.moveTo(HAND_X, HAND_Y).lineTo(ROD_X, ROD_Y).stroke({ width: 1, color: 0x5a3a1a });
-    const boat = stage.addChild(new Sprite(new Texture({ source: nearest(buildBoat()) })));
-    boat.position.set(BOAT_X, BOAT_Y);
+    const boat = new Texture({ source: nearest(buildBoat()) });
+    const list = Array.isArray(coats) ? coats : [coats];
+    game.bowl.rods.forEach((rod, i) => {
+      const at = seatAt(rod);
+      const man = stage.addChild(new Sprite());
+      man.position.set(at.manX, at.manY);
+      man.scale.x = rod.facing;
+      this.men.push(man);
+      this.setCoat(list[i] ?? list[0], i);
+      stage.addChild(new Graphics()).moveTo(at.handX, at.handY).lineTo(rod.x, rod.y).stroke({ width: 1, color: 0x5a3a1a });
+      const hull = stage.addChild(new Sprite(boat));
+      hull.position.set(at.boatX, at.boatY);
+      hull.scale.x = rod.facing;
+    });
     stage.addChild(this.fx);
     stage.addChild(this.fxLayer);
+    stage.addChild(this.overlay);
   }
 
   /** Turn this tick's events into effects. */
   onEvents(events: GameEvent[], game: Game) {
     for (const e of events) {
       if (e.type === 'splash') this.effects.push({ kind: 'splash', x: e.x, y: e.y, start: game.tick });
-      else if (e.type === 'catch') this.popup(`+${e.points}`, '#ffe060', ROD_X, ROD_Y + 4, game.tick);
-      else if (e.type === 'stolen') this.popup('stolen', '#bbbbbb', game.hookX, game.hookY - 6, game.tick);
+      else if (e.type === 'catch') {
+        const rod = game.lines[e.line].rod;
+        this.popup(`+${e.points}`, '#ffe060', rod.x, rod.y + 4, game.tick);
+      } else if (e.type === 'stolen') {
+        const l = game.lines[e.line];
+        this.popup('stolen', '#bbbbbb', l.hookX, l.hookY - 6, game.tick);
+      }
     }
   }
 
-  /** Repaint the fisherman in this hunter's raincoat. */
-  setCoat(coat: Coat) {
-    const old = this.man.texture;
-    this.man.texture = new Texture({ source: nearest(buildFisherman(coat)) });
+  /** Repaint a fisherman (the first, unless told) in this hunter's raincoat. */
+  setCoat(coat: Coat, seat = 0) {
+    const man = this.men[seat];
+    const old = man.texture;
+    man.texture = new Texture({ source: nearest(buildFisherman(coat)) });
     if (old !== Texture.EMPTY) old.destroy(true);
   }
 
@@ -120,27 +144,27 @@ export class GameView {
       sp.texture = this.frames[fishSprite(f.species, f.vx < 0, Math.floor(f.tail) & 1)];
     });
 
-    this.drawLine(game);
+    this.line.clear();
+    for (const l of game.lines) this.drawLine(l, t);
     this.drawBubbles(Math.min(4, t - this.lastTick)); // by ticks, so bubbles keep pace with the speed setting
     this.lastTick = t;
     this.drawEffects(t);
     this.app.render();
   }
 
-  private drawLine(game: Game) {
+  private drawLine(l: Line, tick: number) {
+    if (l.state === 'idle') return;
     const g = this.line;
-    g.clear();
-    if (game.line === 'idle') return;
-    let hx = game.hookX;
-    let hy = game.hookY;
-    if (game.line === 'casting') hy -= Math.sin((Math.PI * game.lineT) / game.lineTicks) * CAST_ARC;
-    if (game.line === 'nibble') hx += (game.tick >> 1) & 1 ? 1 : -1; // the line twitches
-    g.moveTo(ROD_X + 0.5, ROD_Y + 0.5)
+    let hx = l.hookX;
+    let hy = l.hookY;
+    if (l.state === 'casting') hy -= Math.sin((Math.PI * l.lineT) / l.lineTicks) * CAST_ARC;
+    if (l.state === 'nibble') hx += (tick >> 1) & 1 ? 1 : -1; // the line twitches
+    g.moveTo(l.rod.x + 0.5, l.rod.y + 0.5)
       .lineTo(Math.round(hx) + 0.5, Math.round(hy) + 0.5)
       .stroke({ width: 1, color: 0xe8e8e8, alpha: 0.6 });
     // the hook, with bait that greys out as it goes stale
-    const fresh = game.freshness;
-    const bait = game.line === 'casting' ? 0xff6aa0 : fresh > 0 ? mix(0x8a8a8a, 0xff6aa0, fresh) : 0xc0c0c0;
+    const fresh = l.freshness;
+    const bait = l.state === 'casting' ? 0xff6aa0 : fresh > 0 ? mix(0x8a8a8a, 0xff6aa0, fresh) : 0xc0c0c0;
     g.rect(Math.round(hx) - 1, Math.round(hy), 2, 2).fill({ color: bait });
   }
 
@@ -159,8 +183,8 @@ export class GameView {
   private spawnBubble(j: number, scatter: boolean) {
     const r = this.bubbleRng;
     const b = this.bubbles;
-    b.x[j] = j % 2 === 0 ? CHEST_X + 5 + r() * 4 : 4 + r() * (WIDTH - 12);
-    b.y[j] = scatter ? RULES.minY + r() * (SAND_TOP - RULES.minY) : SAND_TOP - 4 + r() * 6;
+    b.x[j] = j % 2 === 0 ? this.chestX + 5 + r() * 4 : 4 + r() * (this.width - 12);
+    b.y[j] = scatter ? RULES.minY + r() * (this.sandTop - RULES.minY) : this.sandTop - 4 + r() * 6;
     b.v[j] = 0.2 + r() * 0.4;
     b.size[j] = Math.floor(r() * 3);
   }

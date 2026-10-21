@@ -165,6 +165,12 @@ a:hover {
 .toolbar .end {
   margin-left: auto;
 }
+/* plain text at the end of a toolbar, like a battle's win/loss record */
+.tool-note {
+  padding: 0 4px;
+  color: var(--dim);
+  font-size: 11px;
+}
 .toolbar .select {
   width: 130px;
   height: 22px;

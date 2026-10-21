@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
+    <title>fishbowl · battle</title>
+  </head>
+  <body>
+    <main class="col battle">
+      <h1 class="title"><a href="../">fishbowl</a></h1>
+      <nav class="subnav" data-page="battle" data-root="../" aria-label="parts"></nav>
+
+      <!-- the bowl as a window: status above, controls below -->
+      <div class="window">
+        <p class="titlebar" id="status">loading…</p>
+        <div class="bowl" id="bowl"></div>
+        <div class="toolbar" aria-label="round">
+          <button type="button" class="tool go" id="start-btn" data-act="start">▶ start</button>
+          <span class="end tool-note" id="record"></span>
+        </div>
+      </div>
+
+      <section class="group bowl-controls" aria-label="opponent">
+        <div class="picker-head">
+          <span class="picker-title" id="hunter-title">who you're up against</span>
+          <button class="info" id="hunter-info-btn" type="button" aria-expanded="true" aria-controls="hunter-info" title="who are these?">i</button>
+        </div>
+        <div id="hunter" aria-labelledby="hunter-title"></div>
+        <div class="spark-info small hunter-info" id="hunter-info"></div>
+        <p class="about small">
+          two minutes, one bowl, the same fish. click to cast, click or space to reel. whoever has more
+          points at the end wins. a splash scares every fish near it, so you can spook the fish swimming
+          at the other hook, and it can do the same to you.
+        </p>
+      </section>
+    </main>
+    <script type="module" src="/src/battle/main.ts"></script>
+  </body>
+</html>

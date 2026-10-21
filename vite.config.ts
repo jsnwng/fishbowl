@@ -37,6 +37,14 @@ const builds: Record<string, BuildOptions> = {
     chunkSizeWarningLimit: 2000,
     rollupOptions: { input: resolve(root, 'live/index.html') },
   },
+  // `vite build --mode battle`: you against an AI, in one bowl.
+  battle: {
+    emptyOutDir: false,
+    manifest: false,
+    assetsDir: 'battle/assets',
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: { input: resolve(root, 'battle/index.html') },
+  },
   // `vite build --mode story`: the home page at the root.
   story: {
     emptyOutDir: false,
@@ -55,6 +63,7 @@ const REDIRECTS: Record<string, string> = {
   '/renderers': '/renderers/',
   '/players': '/players/',
   '/live': '/live/',
+  '/battle': '/battle/',
 };
 const redirect: Connect.NextHandleFunction = (req, res, next) => {
   const [path, query] = (req.url ?? '').split('?');

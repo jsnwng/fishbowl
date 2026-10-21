@@ -1,6 +1,6 @@
-import { WIDTH } from '../adapters/types';
+import { HEIGHT, WIDTH } from '../adapters/types';
 import { buildBackground } from '../scenery';
-import { WATERLINE } from './rules';
+import { ROD_X, WATERLINE, type Rod } from './rules';
 
 /*
  * The fisherman and his boat, drawn the same way as the fish in src/sprites.ts:
@@ -52,6 +52,24 @@ export const FISHERMAN_Y = WATERLINE - 13;
 export const HAND_X = FISHERMAN_X + 10;
 export const HAND_Y = FISHERMAN_Y + 7;
 
+/**
+ * Where a fisherman and boat go for a rod, as offsets from the rod tip toward the stern. A
+ * fisherman facing left is the same picture flipped: draw it with scale.x = rod.facing and
+ * x as given (for a flipped sprite that is its right edge). For the solo rod these are the
+ * constants above.
+ */
+export function seatAt(rod: Rod) {
+  const back = (d: number) => rod.x - rod.facing * d;
+  return {
+    manX: back(ROD_X - FISHERMAN_X),
+    manY: FISHERMAN_Y,
+    boatX: back(ROD_X - BOAT_X),
+    boatY: BOAT_Y,
+    handX: back(ROD_X - HAND_X),
+    handY: HAND_Y,
+  };
+}
+
 /** Raincoat colors: the fisherman's 'c' and 'C' pixels. Each hunter has its own. */
 export interface Coat {
   main: string;
@@ -84,16 +102,17 @@ const CLOUDS = [
   { x: 236, y: 9, w: 16 },
 ];
 
-/** The bowl scenery with sky above the waterline. */
-export function buildGameBackground(): HTMLCanvasElement {
-  const canvas = buildBackground();
+/** The bowl scenery with sky above the waterline, at the solo size or another (the battle bowl). */
+export function buildGameBackground(w = WIDTH, h = HEIGHT): HTMLCanvasElement {
+  const canvas = buildBackground(w, h);
   const ctx = canvas.getContext('2d')!;
   const band = WATERLINE / SKY.length;
   SKY.forEach((c, i) => {
     ctx.fillStyle = c;
-    ctx.fillRect(0, Math.floor(i * band), WIDTH, Math.ceil(band) + 1);
+    ctx.fillRect(0, Math.floor(i * band), w, Math.ceil(band) + 1);
   });
-  for (const cl of CLOUDS) {
+  for (const c of CLOUDS) {
+    const cl = { ...c, x: Math.round((c.x * w) / WIDTH) };
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(cl.x + 3, cl.y, cl.w - 6, 1);
     ctx.fillRect(cl.x, cl.y + 1, cl.w, 2);
@@ -102,8 +121,8 @@ export function buildGameBackground(): HTMLCanvasElement {
   }
   // the surface: a bright line, then a dithered row into the water
   ctx.fillStyle = '#d8f2ff';
-  ctx.fillRect(0, WATERLINE, WIDTH, 1);
+  ctx.fillRect(0, WATERLINE, w, 1);
   ctx.fillStyle = '#8ad0f0';
-  for (let x = 0; x < WIDTH; x += 2) ctx.fillRect(x + ((x >> 3) & 1), WATERLINE + 1, 1, 1);
+  for (let x = 0; x < w; x += 2) ctx.fillRect(x + ((x >> 3) & 1), WATERLINE + 1, 1, 1);
   return canvas;
 }

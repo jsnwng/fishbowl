@@ -7,7 +7,7 @@ export const SECTIONS: { id: string; part: number; href?: string }[] = [
   { id: 'renderers', part: 1, href: 'renderers/' },
   { id: 'players', part: 2, href: 'players/' },
   { id: 'live', part: 3, href: 'live/' },
-  { id: 'game', part: 4 },
+  { id: 'battle', part: 4, href: 'battle/' },
 ];
 
 /**

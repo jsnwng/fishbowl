@@ -5,7 +5,8 @@
     { "source": "/fisherman/:path+", "destination": "/players/:path+", "permanent": true },
     { "source": "/renderers", "destination": "/renderers/", "permanent": true },
     { "source": "/players", "destination": "/players/", "permanent": true },
-    { "source": "/live", "destination": "/live/", "permanent": true }
+    { "source": "/live", "destination": "/live/", "permanent": true },
+    { "source": "/battle", "destination": "/battle/", "permanent": true }
   ],
   "headers": [
     {
