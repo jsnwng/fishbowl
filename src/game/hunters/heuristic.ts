@@ -45,10 +45,23 @@ export class HeuristicHunter implements Hunter {
     for (const f of obs.fish) {
       if (f.scared) continue;
       const plan = leadFor(f, obs);
-      if (plan && (!best || plan.value > best.value)) best = plan;
+      if (plan && !rivalGetsItFirst(f, plan.x, obs) && (!best || plan.value > best.value)) best = plan;
     }
     return best ? { type: 'cast', x: best.x, y: best.y } : null;
   }
+}
+
+/**
+ * In a battle: will this fish swim into the other fisherman's baited hook before it reaches
+ * the spot we'd cast at? Then it's theirs, so pick another. Alone, nothing is ever skipped.
+ */
+function rivalGetsItFirst(f: FishView, castX: number, obs: Observation): boolean {
+  const r = obs.rival;
+  if (!r?.hook || (r.line !== 'casting' && r.freshness <= 0)) return false;
+  const dir = f.vx > 0 ? 1 : -1;
+  const toRival = (r.hook.x - f.x) * dir;
+  const toOurs = (castX - f.x) * dir;
+  return toRival > 0 && toRival < toOurs && Math.abs(r.hook.y - f.y) < RULES.attractRadius;
 }
 
 /**
