@@ -5,19 +5,25 @@ saves every observation with Python's features and choice, then has parity.ts re
 through the TypeScript encode() and CloneHunter and report any difference.
 
     .\training\.venv\Scripts\python.exe training\parity.py      (from the repo root)
+
+With --battle it checks the battle model instead (battle-weights.json, encode_battle() and
+battle.ts), over battles against the heuristic from both boats.
 """
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
 
-from features import REEL, WAIT, cast, encode, lead_for, nearest_fish
+from features import REEL, WAIT, cast, encode, encode_battle, lead_for, nearest_fish
 from fishing_env import FishingEnv
 
+BATTLE = "--battle" in sys.argv
 ROOT = Path(__file__).resolve().parent.parent
-WEIGHTS = json.loads((ROOT / "src/game/hunters/clone-weights.json").read_text())
+WEIGHTS = json.loads((ROOT / f"src/game/hunters/{'battle' if BATTLE else 'clone'}-weights.json").read_text())
+features_of = encode_battle if BATTLE else encode
 LAYERS = [(np.array(l["w"]), np.array(l["b"])) for l in WEIGHTS["layers"]]
 OUT = Path(__file__).resolve().parent / "data/parity.json"
 
@@ -32,7 +38,7 @@ def forward(x):
 
 
 def policy(obs):
-    out = forward(encode(obs))
+    out = forward(features_of(obs))
     kind = int(np.argmax(out[:3]))
     if kind == 0:
         return WAIT
@@ -51,17 +57,19 @@ steps = []
 catches = []
 with FishingEnv() as env:
     for seed in range(1, 21):
-        obs, info = env.reset(seed=seed)
+        battle = {"seat": seed % 2, "opponent": "heuristic"} if BATTLE else None
+        obs, info = env.reset(seed=seed, battle=battle)
         done = False
         while not done:
             action = policy(obs)
             if seed <= 3:  # a few full games is plenty for the per-decision check
-                steps.append({"obs": obs, "features": encode(obs), "action": action})
+                steps.append({"obs": obs, "features": features_of(obs), "action": action})
             obs, reward, done, _, info = env.step(action)
         catches.append(info["stats"]["catches"])
 
 OUT.parent.mkdir(exist_ok=True)
 OUT.write_text(json.dumps(steps))
-print(f"python, exported weights: {sum(catches) / len(catches):.1f} catches per game on seeds 1-20")
+where = "battles against the heuristic, " if BATTLE else ""
+print(f"python, exported weights: {sum(catches) / len(catches):.1f} catches per game on {where}seeds 1-20")
 print(f"checking {len(steps)} decisions against TypeScript...")
-subprocess.run(["node", "--import", "tsx", "training/parity.ts", str(OUT)], cwd=ROOT, check=True)
+subprocess.run(["node", "--import", "tsx", "training/parity.ts", str(OUT), *(["--battle"] if BATTLE else [])], cwd=ROOT, check=True)

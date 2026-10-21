@@ -28,11 +28,13 @@ const OPPONENTS = HUNTERS.filter((h) => !h.human);
 let opponent = OPPONENTS.find((h) => h.id === 'model')!;
 
 const you = new HumanHunter();
+/** The opponent for this bowl: the battle-trained version where there is one (the model). */
+const makeOpponent = (e: HunterEntry) => new Mirrored((e.battle ?? e.make)());
 const newSeed = () => 1 + Math.floor(Math.random() * 1_000_000);
 let seed = newSeed();
 const game = new Game(seed, BATTLE);
 // The AI fishes from the right-hand boat, seeing the bowl flipped so it faces right like always.
-const match = new Match(game, [you, new Mirrored(opponent.make())]);
+const match = new Match(game, [you, makeOpponent(opponent)]);
 const view = new GameView();
 let hud: Hud;
 
@@ -163,14 +165,14 @@ infoBtn.addEventListener('click', () => {
 
 mountHunterPicker($('hunter'), OPPONENTS, (picked: HunterEntry) => {
   opponent = picked;
-  describeHunter(infoEl, opponent);
-  match.seats[1].hunter = new Mirrored(opponent.make());
+  describeHunter(infoEl, { ...opponent, blurb: opponent.battleBlurb ?? opponent.blurb });
+  match.seats[1].hunter = makeOpponent(opponent);
   view.setCoat(opponent.coat, 1);
   stop();
 });
 // the picker starts on its first entry; point it at the default opponent instead
 document.querySelector<HTMLInputElement>(`input[name="hunter"][value="${opponent.id}"]`)!.checked = true;
-describeHunter(infoEl, opponent);
+describeHunter(infoEl, { ...opponent, blurb: opponent.battleBlurb ?? opponent.blurb });
 
 function sync() {
   const live = phase === 'ready' || phase === 'play';

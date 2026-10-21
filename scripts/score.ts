@@ -10,9 +10,10 @@
 //   npm run score -- --seeds 100
 //   npm run score -- --all        include slow hunters (minutes)
 //   npm run score -- --battle     every AI against every AI in the battle bowl, both boats
+//                                 (add --solo-models to use the model trained alone instead)
 import { Mirrored } from '../src/battle/mirror';
 import { Game } from '../src/game/game';
-import { HUNTERS } from '../src/game/hunters';
+import { HUNTERS, type HunterEntry } from '../src/game/hunters';
 import { Match } from '../src/game/match';
 import { BATTLE } from '../src/game/rules';
 import { decisionStats } from '../src/game/results';
@@ -26,6 +27,7 @@ const flag = (name: string, fallback: number) => {
 const seeds = flag('seeds', 20);
 const all = args.includes('--all');
 const battle = args.includes('--battle');
+const soloModels = args.includes('--solo-models'); // battle with the models trained alone, to compare
 
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const sd = (xs: number[]) => {
@@ -86,7 +88,8 @@ async function battles() {
   for (const left of bots) {
     const cells: string[] = [];
     for (const right of bots) {
-      const match = new Match(new Game(1, BATTLE), [left.make(), new Mirrored(right.make())]);
+      const make = (e: HunterEntry) => (soloModels ? e.make() : (e.battle ?? e.make)());
+      const match = new Match(new Game(1, BATTLE), [make(left), new Mirrored(make(right))]);
       match.mode = 'turns';
       let wins = 0;
       let draws = 0;

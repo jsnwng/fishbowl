@@ -1,12 +1,16 @@
 /// <reference types="node" />
 // The TypeScript half of parity.py: replays saved observations through the browser
-// clone and compares its features and choices with Python's. Run parity.py, not this.
+// clone (or, with --battle, the battle model) and compares its features and choices with
+// Python's. Run parity.py, not this.
 import { readFileSync } from 'node:fs';
-import { CloneHunter, encode } from '../src/game/hunters/clone';
+import { BattleModelHunter, encodeBattle } from '../src/game/hunters/battle';
+import { CloneHunter, encode as encodeSolo } from '../src/game/hunters/clone';
 import type { Action, Observation } from '../src/game/types';
 
 const steps: { obs: Observation; features: number[]; action: Action }[] = JSON.parse(readFileSync(process.argv[2], 'utf8'));
-const hunter = new CloneHunter();
+const battle = process.argv.includes('--battle');
+const hunter = battle ? new BattleModelHunter() : new CloneHunter();
+const encode = battle ? encodeBattle : encodeSolo;
 let worstFeature = 0;
 let different = 0;
 for (const step of steps) {

@@ -1,5 +1,6 @@
 import type { Coat } from '../art';
 import type { Hunter } from '../types';
+import { BattleModelHunter } from './battle';
 import { CloneHunter } from './clone';
 import { HeuristicHunter } from './heuristic';
 import { HumanHunter } from './human';
@@ -17,6 +18,9 @@ export interface HunterEntry {
   /** One or two plain sentences for the info panel. */
   blurb: string;
   make: () => Hunter;
+  /** A version made for the battle bowl, if it plays differently there, and what to say about it. */
+  battle?: () => Hunter;
+  battleBlurb?: string;
 }
 
 /** The first entry is the page's default. */
@@ -33,6 +37,9 @@ export const HUNTERS: HunterEntry[] = [
     blurb:
       "a small neural network that learned by watching the heuristic play 160 games. it decides when to cast and which fish to go after, and the heuristic's aiming code drops the hook. about 7,300 numbers, running in your browser.",
     make: () => new CloneHunter(),
+    battle: () => new BattleModelHunter(),
+    battleBlurb:
+      "the same small network, retrained for this bowl. it watched the heuristic play battles against everyone, then played them itself while the heuristic marked its mistakes. it also sees where your hook is and the score.",
   },
   {
     id: 'you',

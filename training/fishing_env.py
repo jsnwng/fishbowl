@@ -60,9 +60,17 @@ class FishingEnv:
             bufsize=1,
         )
 
-    def reset(self, seed: int = 1) -> tuple[Obs, dict[str, Any]]:
-        """Start a run on this seed. Returns the first observation and an info dict."""
-        r = self._send({"cmd": "reset", "seed": seed})
+    def reset(self, seed: int = 1, battle: dict[str, Any] | None = None) -> tuple[Obs, dict[str, Any]]:
+        """Start a run on this seed. Returns the first observation and an info dict.
+
+        battle={"seat": 0 or 1, "opponent": "random"} plays a battle on the 384x216 bowl instead,
+        from the left (0) or right (1) boat. The right boat sees the bowl mirrored, so either way
+        you face right.
+        """
+        msg: dict[str, Any] = {"cmd": "reset", "seed": seed}
+        if battle:
+            msg["battle"] = battle
+        r = self._send(msg)
         return r["obs"], self._info(r)
 
     def step(self, action: Action) -> tuple[Obs | None, float, bool, bool, dict[str, Any]]:

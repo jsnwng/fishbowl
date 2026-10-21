@@ -15,7 +15,7 @@ K = 5  # nearest fish to include
 N_FEATURES = 5 + 2 + 3 + 6 * K  # 40
 
 
-def encode(obs):
+def encode(obs, width=WIDTH, height=HEIGHT):
     """Turn an observation dict into a fixed-length list of floats, roughly in -1..1."""
     features = []
     # the line state, one-hot (5 numbers)
@@ -27,8 +27,8 @@ def encode(obs):
         features.append(0.0)
         features.append(0.0)
     else:
-        features.append(obs["hook"]["x"] / WIDTH)
-        features.append(obs["hook"]["y"] / HEIGHT)
+        features.append(obs["hook"]["x"] / width)
+        features.append(obs["hook"]["y"] / height)
 
     # freshness and the two timers (3 numbers)
     features.append(obs["freshness"])
@@ -39,8 +39,8 @@ def encode(obs):
     start = obs["hook"] or obs["rod"]
     nearest = nearest_fish(obs)
     for f in nearest:
-        features.append((f["x"] - start["x"]) / WIDTH)
-        features.append((f["y"] - start["y"]) / HEIGHT)
+        features.append((f["x"] - start["x"]) / width)
+        features.append((f["y"] - start["y"]) / height)
         features.append(f["vx"] / 2)  # a frightened fish can hit about 2.3 px/tick
         features.append(f["vy"])
         features.append(f["points"] / 5)
@@ -48,6 +48,27 @@ def encode(obs):
     for _ in range(K - len(nearest)):  # pad if fewer than K fish are swimming
         features += [0.0] * 6
 
+    return features
+
+
+# A battle adds the other fisherman: 6 more numbers after the solo 40.
+N_BATTLE_FEATURES = N_FEATURES + 6  # 46
+
+
+def encode_battle(obs):
+    """encode(), scaled to the battle bowl, plus what the other fisherman is up to."""
+    w, h = obs["bowl"]["width"], obs["bowl"]["height"]
+    features = encode(obs, w, h)
+    r = obs["rival"]
+    start = obs["hook"] or obs["rod"]
+    if r and r["hook"]:
+        features += [(r["hook"]["x"] - start["x"]) / w, (r["hook"]["y"] - start["y"]) / h, 1.0]
+    else:
+        features += [0.0, 0.0, 0.0]
+    features.append(1.0 if r and r["line"] in ("waiting", "nibble") else 0.0)
+    features.append(r["freshness"] if r else 0.0)
+    gap = (obs["score"] - r["score"]) / 20 if r else 0.0
+    features.append(max(-1.0, min(1.0, gap)))
     return features
 
 
@@ -71,6 +92,11 @@ LEAD_GAP = 4
 SKITTISH = [1, 1, 1.3, 0.8, 1.5]  # by species
 
 
+def bowl_width(obs):
+    """The bowl's width: 320 alone, 384 in a battle."""
+    return obs["bowl"]["width"] if "bowl" in obs else WIDTH
+
+
 def lead_for(f, obs):
     """The (x, y) to cast at so fish f swims into the hook, or None if it'll turn at the glass first."""
     dx = f["x"] - obs["rod"]["x"]
@@ -79,7 +105,7 @@ def lead_for(f, obs):
     direction = 1 if f["vx"] > 0 else -1
     lead = SPLASH_RADIUS * SKITTISH[f["species"]] + LEAD_GAP
     x = f["x"] + f["vx"] * cast_ticks + direction * lead
-    if x < 8 or x > WIDTH - 8:
+    if x < 8 or x > bowl_width(obs) - 8:
         return None
     return x, max(WATERLINE + 6, f["y"])
 

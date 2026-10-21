@@ -10,6 +10,7 @@ explore.ipynb     step 2: poke at the environment and write encode()
 features.py       encode(), action helpers, and the heuristic's aiming (lead_for)
 clone.ipynb       step 3: behavior cloning, then export the weights to src/game/hunters/
 parity.py         checks the browser clone (clone.ts) and Python agree, decision for decision
+train_battle.py   the clone again, for pt.4's battle bowl: src/game/hunters/battle-weights.json
 
 record_moments.ts records stream moments from headless games, for the chat model's training set
 teach.py          a local teacher (gemma3:12b in Ollama) writes lines for those moments
@@ -61,6 +62,19 @@ Open `clone.ipynb` the same way and run it top to bottom (about a minute). The l
 It should report a largest feature difference of 0 and every choice the same. `npm run score` shows the clone next to the other hunters.
 
 If you change `encode()`, change `encode()` in `src/game/hunters/clone.ts` the same way, retrain, and rerun the parity check.
+
+## Train the battle model
+
+The battle page's model is the same pick-a-fish network, retrained for two fishermen in one bowl:
+
+```bash
+.	raining.venvScriptspython.exe training	rain_battle.py
+.	raining.venvScriptspython.exe trainingparity.py --battle
+```
+
+It records the heuristic in battles against every other AI from both boats (480 games, about a minute), trains on that, then runs two rounds of DAgger: the model fishes, and the heuristic labels the spots it ends up in, which are spots the heuristic never gets itself into. The right-hand boat sees the bowl mirrored, so the model always faces right. On top of the solo 40 numbers it gets 6 about the other fisherman: their hook, whether their bait is in, how fresh it is, and the score gap.
+
+Over 200 seeds against the heuristic it scores about 26 points to the heuristic's 30 and wins about a third of the time. The solo model in the same seat scores about 24. `npm run score -- --battle` shows every AI against every other.
 
 ## Train the chat model
 
