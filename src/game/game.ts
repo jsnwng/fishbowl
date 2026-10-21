@@ -1,9 +1,8 @@
-import { CELL_H, CELL_W, WIDTH } from '../adapters/types';
+import { CELL_H, CELL_W } from '../adapters/types';
 import { mulberry32, rngFor } from '../rng';
-import { FLEE, ROD_X, ROD_Y, RULES, SPECIES_RULES, WATERLINE } from './rules';
-import type { Action, AskReason, FishView, GameEvent, LineState, Observation, RunStats } from './types';
+import { FLEE, RULES, SOLO, SPECIES_RULES, WATERLINE, type Bowl, type Rod } from './rules';
+import { WAIT, type Action, type AskReason, type FishView, type GameEvent, type LineState, type Observation, type RunStats } from './types';
 
-const MAX_X = WIDTH - CELL_W;
 const TOTAL_WEIGHT = SPECIES_RULES.reduce((s, sp) => s + sp.weight, 0);
 
 export type FishState = 'swim' | 'nibble' | 'hooked' | 'gone';
@@ -42,27 +41,17 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 const dist = (ax: number, ay: number, bx: number, by: number) => Math.sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by));
 
 /**
- * The fishing game, headless and deterministic: same seed + same actions = same run.
- * No DOM, no Pixi, so it runs in Node for scoring (and later, training).
- *
- * The clock only runs between start() and the end of the run. Outside it the fish keep
- * swimming but actions are ignored, so the page can show an idle bowl.
+ * One fisherman's line: what it's doing, where the hook is, and that fisherman's score.
+ * A solo game has one; a battle has one per player.
  */
-export class Game {
-  fish: Fish[] = [];
-  tick = 0;
-  elapsed = 0;
-  running = false;
-  done = false;
-  stats: RunStats = blankStats();
-
-  line: LineState = 'idle';
-  hookX = ROD_X;
-  hookY = ROD_Y;
-  castFromX = ROD_X;
-  castFromY = ROD_Y;
-  castToX = ROD_X;
-  castToY = ROD_Y;
+export class Line {
+  state: LineState = 'idle';
+  hookX: number;
+  hookY: number;
+  castFromX: number;
+  castFromY: number;
+  castToX: number;
+  castToY: number;
   /** Ticks into the current cast or reel, and how long it lasts. */
   lineT = 0;
   lineTicks = 0;
@@ -71,14 +60,79 @@ export class Game {
   nibbleFish = -1;
   nibbleLeft = 0;
   hookedFish = -1;
+  stats: RunStats = blankStats();
+
+  constructor(readonly rod: Rod) {
+    this.hookX = this.castFromX = this.castToX = rod.x;
+    this.hookY = this.castFromY = this.castToY = rod.y;
+  }
+
+  get freshness() {
+    if (this.state !== 'waiting' && this.state !== 'nibble') return 0;
+    if (this.baitGone) return 0;
+    return Math.max(0, 1 - this.waitT / RULES.staleTicks);
+  }
+
+  /** Where the hook is, or is headed while casting. Null while the line is in. */
+  get hookView() {
+    if (this.state === 'idle') return null;
+    return this.state === 'casting' ? { x: this.castToX, y: this.castToY } : { x: this.hookX, y: this.hookY };
+  }
+}
+
+/**
+ * The fishing game, headless and deterministic: same seed + same actions = same run.
+ * No DOM, no Pixi, so it runs in Node for scoring and training.
+ *
+ * The bowl sets the size and how many fishermen there are: one on the players and live pages,
+ * two in a battle, fishing the same fish. With one, every number comes out as it always has.
+ *
+ * The clock only runs between start() and the end of the run. Outside it the fish keep
+ * swimming but actions are ignored, so the page can show an idle bowl.
+ */
+export class Game {
+  fish: Fish[] = [];
+  lines: Line[] = [];
+  tick = 0;
+  elapsed = 0;
+  running = false;
+  done = false;
 
   private seed = 1;
   private spawns = 0;
   private rng = mulberry32(0);
   private events: GameEvent[] = [];
+  private maxX: number;
 
-  constructor(seed = 1) {
+  constructor(
+    seed = 1,
+    readonly bowl: Bowl = SOLO,
+  ) {
+    this.maxX = bowl.width - CELL_W;
     this.reset(seed);
+  }
+
+  // The first fisherman's line, for the pages that only have one.
+  get line() {
+    return this.lines[0].state;
+  }
+  get hookX() {
+    return this.lines[0].hookX;
+  }
+  get hookY() {
+    return this.lines[0].hookY;
+  }
+  get lineT() {
+    return this.lines[0].lineT;
+  }
+  get lineTicks() {
+    return this.lines[0].lineTicks;
+  }
+  get freshness() {
+    return this.lines[0].freshness;
+  }
+  get stats() {
+    return this.lines[0].stats;
   }
 
   /** Back to tick 0 with this seed's fish. The clock is stopped until start(). */
@@ -88,18 +142,15 @@ export class Game {
     this.elapsed = 0;
     this.running = false;
     this.done = false;
-    this.stats = blankStats();
     this.rng = mulberry32(Math.imul(seed, 31) + 7);
     this.spawns = 0;
-    this.nibbleFish = -1;
-    this.hookedFish = -1;
+    this.lines = this.bowl.rods.map((rod) => new Line(rod));
     this.fish = [];
     for (let i = 0; i < RULES.fish; i++) {
       const f = this.blankFish(i);
       this.spawn(f, false);
       this.fish.push(f);
     }
-    this.lineIn();
   }
 
   start() {
@@ -111,198 +162,211 @@ export class Game {
     return Math.max(0, RULES.runTicks - this.elapsed);
   }
 
-  get freshness() {
-    if (this.line !== 'waiting' && this.line !== 'nibble') return 0;
-    if (this.baitGone) return 0;
-    return Math.max(0, 1 - this.waitT / RULES.staleTicks);
-  }
-
-  /** Advance one tick. Returns what happened on it. */
-  step(action: Action): GameEvent[] {
+  /** Advance one tick, with one action per fisherman (or a single action, alone). Returns what happened. */
+  step(actions: Action | Action[]): GameEvent[] {
+    const list = Array.isArray(actions) ? actions : [actions];
     this.events = [];
     this.tick++;
     if (this.running) {
       this.elapsed++;
-      this.act(action);
+      this.lines.forEach((l, i) => this.act(l, i, list[i] ?? WAIT));
     }
-    this.advanceLine();
+    this.lines.forEach((l, i) => this.advanceLine(l, i));
     for (const f of this.fish) this.moveFish(f);
     this.checkBites();
     if (this.running && this.elapsed >= RULES.runTicks) this.finish();
     return this.events;
   }
 
-  observe(reason: AskReason = 'check'): Observation {
+  /** What fisherman `seat` sees: the fish, their own line, and the other fisherman's if there is one. */
+  observe(reason: AskReason = 'check', seat = 0): Observation {
     const fish: FishView[] = [];
     for (const f of this.fish) {
       if (f.state !== 'swim' && f.state !== 'nibble') continue;
       const sp = SPECIES_RULES[f.species];
       fish.push({ id: f.id, x: centerX(f), y: centerY(f), vx: f.vx * (1 + f.burst * FLEE.burstMax), vy: f.dy, species: f.species, points: sp.points, scared: f.burst > 0 });
     }
-    const out = this.line === 'idle';
+    const me = this.lines[seat];
+    const other = this.lines.length > 1 ? this.lines[(seat + 1) % this.lines.length] : null;
     return {
       tick: this.tick,
       reason,
       ticksLeft: this.ticksLeft,
-      score: this.stats.score,
-      catches: this.stats.catches,
-      line: this.line,
-      rod: { x: ROD_X, y: ROD_Y },
-      hook: out ? null : this.line === 'casting' ? { x: this.castToX, y: this.castToY } : { x: this.hookX, y: this.hookY },
-      freshness: this.freshness,
-      nibbleLeft: this.line === 'nibble' ? this.nibbleLeft : 0,
+      score: me.stats.score,
+      catches: me.stats.catches,
+      line: me.state,
+      rod: { x: me.rod.x, y: me.rod.y, facing: me.rod.facing },
+      hook: me.hookView,
+      freshness: me.freshness,
+      nibbleLeft: me.state === 'nibble' ? me.nibbleLeft : 0,
       fish,
+      bowl: { width: this.bowl.width, height: this.bowl.height, maxY: this.bowl.maxY },
+      rival: other && { line: other.state, hook: other.hookView, freshness: other.freshness, score: other.stats.score },
     };
   }
 
   // ---- the line ----
 
-  private act(a: Action) {
+  private act(l: Line, i: number, a: Action) {
     if (a.type === 'wait') return;
     if (a.type === 'cast') {
-      if (this.line !== 'idle') {
-        this.stats.invalid++;
+      if (l.state !== 'idle') {
+        l.stats.invalid++;
         return;
       }
-      const x = clamp(a.x, 2, WIDTH - 2);
-      const y = clamp(a.y, WATERLINE + 4, RULES.maxY + CELL_H);
-      this.line = 'casting';
-      this.castFromX = ROD_X;
-      this.castFromY = ROD_Y;
-      this.castToX = x;
-      this.castToY = y;
-      this.lineT = 0;
-      this.lineTicks = Math.round(RULES.castBaseTicks + dist(ROD_X, ROD_Y, x, y) * RULES.castTicksPerPx);
-      this.stats.casts++;
-      this.events.push({ type: 'cast', x, y });
+      const x = clamp(a.x, 2, this.bowl.width - 2);
+      const y = clamp(a.y, WATERLINE + 4, this.bowl.maxY + CELL_H);
+      l.state = 'casting';
+      l.castFromX = l.rod.x;
+      l.castFromY = l.rod.y;
+      l.castToX = x;
+      l.castToY = y;
+      l.lineT = 0;
+      l.lineTicks = Math.round(RULES.castBaseTicks + dist(l.rod.x, l.rod.y, x, y) * RULES.castTicksPerPx);
+      l.stats.casts++;
+      this.events.push({ type: 'cast', line: i, x, y });
       return;
     }
     // reel
-    if (this.line === 'nibble') {
-      const f = this.fish[this.nibbleFish];
+    if (l.state === 'nibble') {
+      const f = this.fish[l.nibbleFish];
       f.state = 'hooked';
-      this.hookedFish = f.id;
-      this.nibbleFish = -1;
-      this.events.push({ type: 'hooked', fish: f.id, species: f.species });
-    } else if (this.line === 'waiting') {
-      this.stats.empties++;
-      this.events.push({ type: 'empty' });
+      l.hookedFish = f.id;
+      l.nibbleFish = -1;
+      this.events.push({ type: 'hooked', line: i, fish: f.id, species: f.species });
+    } else if (l.state === 'waiting') {
+      l.stats.empties++;
+      this.events.push({ type: 'empty', line: i });
     } else {
-      this.stats.invalid++; // nothing to reel while the line is in or mid-cast
+      l.stats.invalid++; // nothing to reel while the line is in or mid-cast
       return;
     }
-    this.line = 'reeling';
-    this.castFromX = this.hookX;
-    this.castFromY = this.hookY;
-    this.lineT = 0;
-    this.lineTicks = RULES.reelTicks;
+    l.state = 'reeling';
+    l.castFromX = l.hookX;
+    l.castFromY = l.hookY;
+    l.lineT = 0;
+    l.lineTicks = RULES.reelTicks;
   }
 
-  private advanceLine() {
-    switch (this.line) {
+  private advanceLine(l: Line, i: number) {
+    switch (l.state) {
       case 'casting': {
-        this.lineT++;
-        const p = this.lineT / this.lineTicks;
-        this.hookX = this.castFromX + (this.castToX - this.castFromX) * p;
-        this.hookY = this.castFromY + (this.castToY - this.castFromY) * p;
-        if (this.lineT >= this.lineTicks) this.land();
+        l.lineT++;
+        const p = l.lineT / l.lineTicks;
+        l.hookX = l.castFromX + (l.castToX - l.castFromX) * p;
+        l.hookY = l.castFromY + (l.castToY - l.castFromY) * p;
+        if (l.lineT >= l.lineTicks) this.land(l, i);
         break;
       }
       case 'waiting':
-        this.waitT++;
+        l.waitT++;
         break;
       case 'nibble':
-        this.waitT++;
-        if (--this.nibbleLeft <= 0) this.steal();
+        l.waitT++;
+        if (--l.nibbleLeft <= 0) this.steal(l, i);
         break;
       case 'reeling': {
-        this.lineT++;
-        const p = Math.min(1, this.lineT / this.lineTicks);
-        this.hookX = this.castFromX + (ROD_X - this.castFromX) * p;
-        this.hookY = this.castFromY + (ROD_Y - this.castFromY) * p;
-        if (this.lineT >= this.lineTicks) this.landCatch();
+        l.lineT++;
+        const p = Math.min(1, l.lineT / l.lineTicks);
+        l.hookX = l.castFromX + (l.rod.x - l.castFromX) * p;
+        l.hookY = l.castFromY + (l.rod.y - l.castFromY) * p;
+        if (l.lineT >= l.lineTicks) this.landCatch(l, i);
         break;
       }
     }
   }
 
-  /** The hook hits the water: splash, then the bait starts working. */
-  private land() {
-    this.hookX = this.castToX;
-    this.hookY = this.castToY;
-    this.line = 'waiting';
-    this.waitT = 0;
-    this.baitGone = false;
+  /** The hook hits the water: splash, then the bait starts working. The splash scares anyone's fish. */
+  private land(l: Line, i: number) {
+    l.hookX = l.castToX;
+    l.hookY = l.castToY;
+    l.state = 'waiting';
+    l.waitT = 0;
+    l.baitGone = false;
     let scared = 0;
     for (const f of this.fish) {
       if (f.state !== 'swim') continue;
-      if (this.scare(f, this.hookX, this.hookY, RULES.splashRadius * SPECIES_RULES[f.species].skittish)) scared++;
+      if (this.scare(f, l.hookX, l.hookY, RULES.splashRadius * SPECIES_RULES[f.species].skittish)) scared++;
     }
-    this.events.push({ type: 'splash', x: this.hookX, y: this.hookY, scared });
+    this.events.push({ type: 'splash', line: i, x: l.hookX, y: l.hookY, scared });
   }
 
   /** The strike window ran out: the fish takes the bait and bolts. */
-  private steal() {
-    const f = this.fish[this.nibbleFish];
+  private steal(l: Line, i: number) {
+    const f = this.fish[l.nibbleFish];
     f.state = 'swim';
-    this.scare(f, this.hookX, this.hookY, CELL_W * 2);
-    this.nibbleFish = -1;
-    this.baitGone = true;
-    this.line = 'waiting';
-    this.stats.stolen++;
-    this.events.push({ type: 'stolen', fish: f.id, species: f.species });
+    this.scare(f, l.hookX, l.hookY, CELL_W * 2);
+    l.nibbleFish = -1;
+    l.baitGone = true;
+    l.state = 'waiting';
+    l.stats.stolen++;
+    this.events.push({ type: 'stolen', line: i, fish: f.id, species: f.species });
   }
 
-  private landCatch() {
-    if (this.hookedFish >= 0) {
-      const f = this.fish[this.hookedFish];
+  private landCatch(l: Line, i: number) {
+    if (l.hookedFish >= 0) {
+      const f = this.fish[l.hookedFish];
       const points = SPECIES_RULES[f.species].points;
-      this.stats.score += points;
-      this.stats.catches++;
+      l.stats.score += points;
+      l.stats.catches++;
       f.state = 'gone';
       f.respawnAt = this.tick + RULES.respawnTicks;
-      this.events.push({ type: 'catch', fish: f.id, species: f.species, points });
+      this.events.push({ type: 'catch', line: i, fish: f.id, species: f.species, points });
     }
-    this.lineIn();
+    this.lineIn(l);
   }
 
-  private lineIn() {
-    if (this.nibbleFish >= 0) this.fish[this.nibbleFish].state = 'swim';
-    if (this.hookedFish >= 0 && this.fish[this.hookedFish].state === 'hooked') this.fish[this.hookedFish].state = 'swim';
-    this.line = 'idle';
-    this.hookX = ROD_X;
-    this.hookY = ROD_Y;
-    this.lineT = 0;
-    this.lineTicks = 0;
-    this.waitT = 0;
-    this.baitGone = false;
-    this.nibbleFish = -1;
-    this.nibbleLeft = 0;
-    this.hookedFish = -1;
+  private lineIn(l: Line) {
+    if (l.nibbleFish >= 0) this.fish[l.nibbleFish].state = 'swim';
+    if (l.hookedFish >= 0 && this.fish[l.hookedFish].state === 'hooked') this.fish[l.hookedFish].state = 'swim';
+    l.state = 'idle';
+    l.hookX = l.rod.x;
+    l.hookY = l.rod.y;
+    l.lineT = 0;
+    l.lineTicks = 0;
+    l.waitT = 0;
+    l.baitGone = false;
+    l.nibbleFish = -1;
+    l.nibbleLeft = 0;
+    l.hookedFish = -1;
   }
 
   private finish() {
     this.running = false;
     this.done = true;
-    this.lineIn();
-    this.events.push({ type: 'end', score: this.stats.score, catches: this.stats.catches });
+    for (const l of this.lines) this.lineIn(l);
+    const first = this.lines[0].stats;
+    this.events.push({ type: 'end', score: first.score, catches: first.catches, scores: this.lines.map((l) => l.stats.score) });
   }
 
   // ---- fish ----
 
+  /**
+   * Each waiting line gets its chance at a bite. With two fishermen the one checked first takes
+   * turns, so neither always wins a fish that reaches both hooks on the same tick.
+   */
   private checkBites() {
-    if (this.line !== 'waiting') return;
-    const fresh = this.freshness;
+    const n = this.lines.length;
+    const first = n > 1 ? this.tick % n : 0;
+    for (let k = 0; k < n; k++) {
+      const i = (first + k) % n;
+      this.checkBite(this.lines[i], i);
+    }
+  }
+
+  private checkBite(l: Line, i: number) {
+    if (l.state !== 'waiting') return;
+    const fresh = l.freshness;
     if (fresh <= 0) return;
     for (const f of this.fish) {
       if (f.state !== 'swim' || f.burst > 0) continue;
-      if (dist(mouthX(f), centerY(f), this.hookX, this.hookY) > RULES.biteRadius) continue;
+      if (dist(mouthX(f), centerY(f), l.hookX, l.hookY) > RULES.biteRadius) continue;
       if (this.rng() >= RULES.biteChance * fresh) continue;
       f.state = 'nibble';
-      this.line = 'nibble';
-      this.nibbleFish = f.id;
-      this.nibbleLeft = RULES.strikeWindow;
-      this.events.push({ type: 'nibble', fish: f.id, species: f.species });
+      l.state = 'nibble';
+      l.nibbleFish = f.id;
+      l.nibbleLeft = RULES.strikeWindow;
+      this.events.push({ type: 'nibble', line: i, fish: f.id, species: f.species });
       return;
     }
   }
@@ -312,16 +376,19 @@ export class Game {
       case 'gone':
         if (this.tick >= f.respawnAt) this.spawn(f, true);
         return;
-      case 'hooked':
-        f.x = this.hookX - CELL_W / 2;
-        f.y = this.hookY - CELL_H / 2;
+      case 'hooked': {
+        const l = this.lines.find((l) => l.hookedFish === f.id)!;
+        f.x = l.hookX - CELL_W / 2;
+        f.y = l.hookY - CELL_H / 2;
         f.tail += 0.5; // thrashing
         return;
+      }
       case 'nibble':
         f.tail += 0.25;
         return;
     }
 
+    const { minY, maxY } = this.bowl;
     const startY = f.y;
     if (this.tick >= f.wanderAt) this.wander(f);
     const attracted = this.attract(f);
@@ -332,15 +399,15 @@ export class Game {
     if (nx < 0 && f.vx < 0) {
       nx = -nx;
       f.vx = -f.vx;
-    } else if (nx > MAX_X && f.vx > 0) {
-      nx = 2 * MAX_X - nx;
+    } else if (nx > this.maxX && f.vx > 0) {
+      nx = 2 * this.maxX - nx;
       f.vx = -f.vx;
     }
     f.x = nx;
 
     // Vertical: a dodge glides the fish off its line; once calm it eases back to its home depth.
     if (f.vy !== 0) {
-      f.y = clamp(f.y + f.vy, RULES.minY, RULES.maxY);
+      f.y = clamp(f.y + f.vy, minY, maxY);
       f.vy *= FLEE.vyDamp;
       if (Math.abs(f.vy) < 0.01) f.vy = 0;
     } else if (!attracted && f.burst === 0 && f.y !== f.homeY) {
@@ -358,18 +425,27 @@ export class Game {
 
   /**
    * Fresh bait pulls calm fish in, but only fish that can see it: the hook has to be ahead
-   * of them. They drift to its depth and swim into it.
+   * of them. They drift to its depth and swim into it. With two hooks in reach, the nearer wins.
    */
   private attract(f: Fish): boolean {
-    if (this.line !== 'waiting' || f.burst > 0) return false;
-    const fresh = this.freshness;
-    if (fresh <= 0) return false;
+    if (f.burst > 0) return false;
     const mx = mouthX(f);
-    const ahead = f.vx > 0 ? this.hookX >= mx - RULES.biteRadius : this.hookX <= mx + RULES.biteRadius;
-    if (!ahead) return false;
-    if (dist(mx, centerY(f), this.hookX, this.hookY) > RULES.attractRadius * fresh) return false;
-    const dy = this.hookY - centerY(f);
-    f.y = clamp(f.y + clamp(dy, -RULES.attractDive, RULES.attractDive), RULES.minY, RULES.maxY);
+    let best: Line | null = null;
+    let bestD = Infinity;
+    for (const l of this.lines) {
+      if (l.state !== 'waiting') continue;
+      const fresh = l.freshness;
+      if (fresh <= 0) continue;
+      const ahead = f.vx > 0 ? l.hookX >= mx - RULES.biteRadius : l.hookX <= mx + RULES.biteRadius;
+      if (!ahead) continue;
+      const d = dist(mx, centerY(f), l.hookX, l.hookY);
+      if (d > RULES.attractRadius * fresh || d >= bestD) continue;
+      best = l;
+      bestD = d;
+    }
+    if (!best) return false;
+    const dy = best.hookY - centerY(f);
+    f.y = clamp(f.y + clamp(dy, -RULES.attractDive, RULES.attractDive), this.bowl.minY, this.bowl.maxY);
     return true;
   }
 
@@ -382,10 +458,10 @@ export class Game {
     f.wanderAt = this.tick + RULES.wanderMinTicks + Math.floor(r() * (RULES.wanderMaxTicks - RULES.wanderMinTicks));
     if (f.burst > 0) return;
     if (r() < RULES.turnChance) {
-      const nearWall = f.vx > 0 ? f.x < FLEE.wallMargin : f.x > MAX_X - FLEE.wallMargin;
+      const nearWall = f.vx > 0 ? f.x < FLEE.wallMargin : f.x > this.maxX - FLEE.wallMargin;
       if (!nearWall) f.vx = -f.vx;
     }
-    if (r() < RULES.depthChance) f.homeY = clamp(f.y + (r() * 2 - 1) * RULES.depthRange, RULES.minY, RULES.maxY);
+    if (r() < RULES.depthChance) f.homeY = clamp(f.y + (r() * 2 - 1) * RULES.depthRange, this.bowl.minY, this.bowl.maxY);
   }
 
   /** Bolt away from (px, py) if it's within `radius`. Returns whether the fish got scared. */
@@ -397,7 +473,7 @@ export class Game {
     const threat = 1 - d / radius;
     const headingAway = f.vx > 0 ? dx > 0 : dx < 0;
     if (!headingAway) {
-      const blocked = f.vx > 0 ? f.x < FLEE.wallMargin : f.x > MAX_X - FLEE.wallMargin;
+      const blocked = f.vx > 0 ? f.x < FLEE.wallMargin : f.x > this.maxX - FLEE.wallMargin;
       if (!blocked) f.vx = -f.vx;
     }
     f.burst = Math.max(f.burst, Math.min(1, threat * 1.5 + 0.5));
@@ -417,11 +493,12 @@ export class Game {
     while (sp < SPECIES_RULES.length - 1 && pick >= SPECIES_RULES[sp].weight) pick -= SPECIES_RULES[sp++].weight;
     const speed = SPECIES_RULES[sp].speed * (0.7 + 0.6 * r());
     const right = r() < 0.5;
+    const { minY, maxY } = this.bowl;
     f.species = sp;
     f.state = 'swim';
     f.vx = right ? speed : -speed;
-    f.x = fromEdge ? (right ? -CELL_W : WIDTH) : r() * MAX_X;
-    f.y = RULES.minY + r() * (RULES.maxY - RULES.minY);
+    f.x = fromEdge ? (right ? -CELL_W : this.bowl.width) : r() * this.maxX;
+    f.y = minY + r() * (maxY - minY);
     f.homeY = f.y;
     f.vy = 0;
     f.burst = 0;

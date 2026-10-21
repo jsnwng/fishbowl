@@ -1,4 +1,4 @@
-import { CELL_H } from '../adapters/types';
+import { CELL_H, HEIGHT, WIDTH } from '../adapters/types';
 import { SAND_TOP } from '../scenery';
 
 /** Sky above, water below. The fisherman's boat sits on this line. */
@@ -51,6 +51,40 @@ export const RULES = {
   minY: WATERLINE + 2,
   maxY: SAND_TOP - CELL_H - 6,
 } as const;
+
+/** A fisherman's rod tip. `facing` is which way the fisherman looks: 1 right, -1 left. */
+export interface Rod {
+  x: number;
+  y: number;
+  facing: 1 | -1;
+}
+
+/** The bowl a game is played in: its size, where fish can swim, and one rod per player. */
+export interface Bowl {
+  width: number;
+  height: number;
+  minY: number;
+  maxY: number;
+  rods: Rod[];
+}
+
+/** Where fish can swim in a bowl this tall: the same margins as the solo bowl's RULES.minY/maxY. */
+const swimRange = (height: number) => ({ minY: WATERLINE + 2, maxY: height - (HEIGHT - SAND_TOP) - CELL_H - 6 });
+
+/** The players and live pages: 320x180, one fisherman. */
+export const SOLO: Bowl = { width: WIDTH, height: HEIGHT, minY: RULES.minY, maxY: RULES.maxY, rods: [{ x: ROD_X, y: ROD_Y, facing: 1 }] };
+
+/** pt.4: 384x216 (1.2x, still 16:9), you on the left facing right, the AI on the right facing left. */
+export const BATTLE_GAP = 40; // px from the middle to each rod tip
+export const BATTLE: Bowl = {
+  width: 384,
+  height: 216,
+  ...swimRange(216),
+  rods: [
+    { x: 192 - BATTLE_GAP, y: ROD_Y, facing: 1 },
+    { x: 192 + BATTLE_GAP, y: ROD_Y, facing: -1 },
+  ],
+};
 
 /** Per species, in SPECIES order (goldfish, clownfish, blue tang, puffer, angelfish). */
 export const SPECIES_RULES = [

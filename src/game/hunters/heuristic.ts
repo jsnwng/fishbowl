@@ -1,4 +1,3 @@
-import { WIDTH } from '../../adapters/types';
 import { RULES, SPECIES_RULES, WATERLINE } from '../rules';
 import { WAIT, type Action, type FishView, type Hunter, type Observation } from '../types';
 
@@ -64,7 +63,7 @@ export function leadFor(f: FishView, obs: Observation) {
   const dir = f.vx > 0 ? 1 : -1;
   const lead = RULES.splashRadius * SPECIES_RULES[f.species].skittish + LEAD_GAP;
   const x = f.x + f.vx * castTicks + dir * lead;
-  if (x < 8 || x > WIDTH - 8) return null; // it'll turn at the glass first
+  if (x < 8 || x > obs.bowl.width - 8) return null; // it'll turn at the glass first
   const y = Math.max(WATERLINE + 6, f.y);
   const swimTicks = lead / Math.max(0.1, Math.abs(f.vx));
   const value = f.points / (castTicks + swimTicks + RULES.reelTicks);

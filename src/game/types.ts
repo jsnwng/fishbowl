@@ -5,16 +5,19 @@ export type Action = { type: 'cast'; x: number; y: number } | { type: 'reel' } |
 
 export const WAIT: Action = { type: 'wait' };
 
-/** What happened on a tick. Drives the view's effects (and later, the commentator). */
+/**
+ * What happened on a tick. Drives the view's effects and the commentators. `line` is whose
+ * line it happened on: always 0 with one fisherman, 0 or 1 in a battle.
+ */
 export type GameEvent =
-  | { type: 'cast'; x: number; y: number }
-  | { type: 'splash'; x: number; y: number; scared: number }
-  | { type: 'nibble'; fish: number; species: number }
-  | { type: 'hooked'; fish: number; species: number }
-  | { type: 'catch'; fish: number; species: number; points: number }
-  | { type: 'stolen'; fish: number; species: number }
-  | { type: 'empty' }
-  | { type: 'end'; score: number; catches: number };
+  | { type: 'cast'; line: number; x: number; y: number }
+  | { type: 'splash'; line: number; x: number; y: number; scared: number }
+  | { type: 'nibble'; line: number; fish: number; species: number }
+  | { type: 'hooked'; line: number; fish: number; species: number }
+  | { type: 'catch'; line: number; fish: number; species: number; points: number }
+  | { type: 'stolen'; line: number; fish: number; species: number }
+  | { type: 'empty'; line: number }
+  | { type: 'end'; score: number; catches: number; scores: number[] };
 
 /** One fish as a hunter sees it. Positions are the fish's center, in bowl pixels. */
 export interface FishView {
@@ -34,6 +37,15 @@ export interface FishView {
  */
 export type AskReason = 'idle' | 'landed' | 'nibble' | 'check';
 
+/** The other fisherman in a battle, as you'd see them from your boat. */
+export interface RivalView {
+  line: LineState;
+  /** Where their hook is (or is headed while casting). Null while their line is in. */
+  hook: { x: number; y: number } | null;
+  freshness: number;
+  score: number;
+}
+
 /** Everything a hunter gets to see when it's asked. */
 export interface Observation {
   tick: number;
@@ -42,7 +54,8 @@ export interface Observation {
   score: number;
   catches: number;
   line: LineState;
-  rod: { x: number; y: number };
+  /** Your rod tip, and which way you face (1 right, -1 left). */
+  rod: { x: number; y: number; facing: 1 | -1 };
   /** Where the hook is (or is headed while casting). Null while the line is in. */
   hook: { x: number; y: number } | null;
   /** 1 = fresh bait, 0 = stale or gone. */
@@ -50,6 +63,10 @@ export interface Observation {
   /** Ticks left to reel in a nibbling fish; 0 when nothing is biting. */
   nibbleLeft: number;
   fish: FishView[];
+  /** The bowl's size in pixels. */
+  bowl: { width: number; height: number; maxY: number };
+  /** The other fisherman, in a battle. Null when you're out there alone. */
+  rival: RivalView | null;
 }
 
 /** Anything that fishes: a person, fixed code, a trained policy, an LLM. */

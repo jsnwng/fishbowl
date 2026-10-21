@@ -23,61 +23,98 @@ interface Asked {
   at: number;
 }
 
-/**
- * One run: a game, a hunter, and the rules for when the hunter gets asked. The page and the
- * score script both drive runs through this, so they always play by the same rules.
- */
-export class Match {
-  hunter: Hunter;
-  mode: Mode = 'realtime';
+/** One fisherman at the match: who's playing, and the bookkeeping for when to ask them. */
+export class Seat {
   actions: LoggedAction[] = [];
   decisions: Decision[] = [];
   asks = 0;
   errors = 0;
-  /** Main-thread ms spent inside hunter.decide() since the last takeMainMs(). */
-  private mainMs = 0;
+  pending: (Asked & { promise: Promise<void> }) | null = null;
+  ready: (Asked & { action: Action; doneAt: number }) | null = null;
+  /** An answer that came while the game was blocked on another seat, applied on the next tick. */
+  held: Action | null = null;
+  lastAsk = -Infinity;
+  seenLine: LineState = 'idle';
 
-  private pending: (Asked & { promise: Promise<void> }) | null = null;
-  private ready: (Asked & { action: Action; doneAt: number }) | null = null;
-  private lastAsk = -Infinity;
-  private seenLine: LineState = 'idle';
+  constructor(public hunter: Hunter) {}
 
-  constructor(
-    readonly game: Game,
-    hunter: Hunter,
-  ) {
-    this.hunter = hunter;
-  }
-
-  /** Fresh run on this seed. */
-  start(seed: number) {
-    this.game.reset(seed);
-    this.hunter.reset(seed);
+  clear(line: LineState) {
     this.actions = [];
     this.decisions = [];
     this.asks = 0;
     this.errors = 0;
     this.pending = null;
     this.ready = null;
+    this.held = null;
     this.lastAsk = -Infinity;
-    this.seenLine = this.game.line;
+    this.seenLine = line;
+  }
+}
+
+/**
+ * One run: a game, a hunter per fisherman, and the rules for when each gets asked. The pages,
+ * the score script and training all drive runs through this, so they play by the same rules.
+ */
+export class Match {
+  seats: Seat[];
+  mode: Mode = 'realtime';
+  /** Main-thread ms spent inside hunter.decide() since the last takeMainMs(). */
+  private mainMs = 0;
+
+  constructor(
+    readonly game: Game,
+    hunters: Hunter | Hunter[],
+  ) {
+    this.seats = (Array.isArray(hunters) ? hunters : [hunters]).map((h) => new Seat(h));
+  }
+
+  // The first seat, for the pages with one fisherman.
+  get hunter() {
+    return this.seats[0].hunter;
+  }
+  set hunter(h: Hunter) {
+    this.seats[0].hunter = h;
+  }
+  get actions() {
+    return this.seats[0].actions;
+  }
+  get decisions() {
+    return this.seats[0].decisions;
+  }
+  get asks() {
+    return this.seats[0].asks;
+  }
+  get errors() {
+    return this.seats[0].errors;
+  }
+
+  /** Fresh run on this seed. */
+  start(seed: number) {
+    this.game.reset(seed);
+    this.seats.forEach((s, i) => {
+      s.hunter.reset(seed);
+      s.clear(this.game.lines[i].state);
+    });
     this.game.start();
   }
 
   /** Back to an idle bowl on this seed, dropping any answer still on its way. */
   stop(seed: number) {
-    this.pending = null;
-    this.ready = null;
+    for (const s of this.seats) {
+      s.pending = null;
+      s.ready = null;
+      s.held = null;
+    }
     this.game.reset(seed);
   }
 
   get thinking(): boolean {
-    return this.pending !== null;
+    return this.seats.some((s) => s.pending !== null);
   }
 
-  /** In turn based, the game can't move while the hunter is still thinking. */
+  /** In turn based, the game can't move while a hunter is still thinking. */
   get blocked(): boolean {
-    return this.mode === 'turns' && this.pending !== null;
+    return this.mode === 'turns' && this.thinking;
   }
 
   takeMainMs(): number {
@@ -89,85 +126,103 @@ export class Match {
   /** Advance one tick (or not, if blocked). Returns the game's events. */
   step(): GameEvent[] {
     const game = this.game;
-    if (!game.running) return game.step(WAIT);
+    if (!game.running) return game.step(this.seats.map(() => WAIT));
 
-    let action: Action = WAIT;
-    if (this.ready) {
-      const r = this.ready;
-      this.ready = null;
-      this.decisions.push({ thinkMs: r.doneAt - r.at, lagTicks: game.tick - r.tick });
-      action = r.action;
-    } else if (!this.pending) {
-      const reason = this.reasonToAsk();
-      if (reason) action = this.ask(reason);
+    const actions = this.seats.map((s, i) => this.next(s, i));
+    if (this.blocked) {
+      // keep what the seats that did answer said, for the tick the game moves on
+      this.seats.forEach((s, i) => {
+        if (!s.pending) s.held = actions[i];
+      });
+      return [];
     }
-    if (this.blocked) return [];
 
     const tick = game.tick;
-    const events = game.step(action);
-    if (action.type !== 'wait') this.actions.push([tick, action]);
+    const events = game.step(actions);
+    this.seats.forEach((s, i) => {
+      if (actions[i].type !== 'wait') s.actions.push([tick, actions[i]]);
+    });
     return events;
   }
 
   /** Headless: play to the end, waiting on slow hunters as needed (turn based or not). */
   async runToEnd() {
     while (this.game.running) {
-      if (this.pending) await this.pending.promise;
+      const pending = this.seats.find((s) => s.pending)?.pending;
+      if (pending) await pending.promise;
       else this.step();
     }
   }
 
-  /** Is this tick a decision point? */
-  private reasonToAsk(): AskReason | null {
-    const game = this.game;
-    const line = game.line;
-    const changed = line !== this.seenLine;
-    const from = this.seenLine;
-    this.seenLine = line;
-    const due = game.tick - this.lastAsk >= RULES.askEvery;
+  /** This seat's action for this tick: a held or finished answer, or a new question. */
+  private next(s: Seat, i: number): Action {
+    if (s.held) {
+      const a = s.held;
+      s.held = null;
+      return a;
+    }
+    if (s.ready) {
+      const r = s.ready;
+      s.ready = null;
+      s.decisions.push({ thinkMs: r.doneAt - r.at, lagTicks: this.game.tick - r.tick });
+      return r.action;
+    }
+    if (s.pending) return WAIT;
+    const reason = this.reasonToAsk(s, i);
+    return reason ? this.ask(s, i, reason) : WAIT;
+  }
 
-    if (line === 'casting' || line === 'reeling') return this.hunter.everyTick ? 'check' : null;
+  /** Is this tick a decision point for this seat? */
+  private reasonToAsk(s: Seat, i: number): AskReason | null {
+    const game = this.game;
+    const line = game.lines[i].state;
+    const changed = line !== s.seenLine;
+    const from = s.seenLine;
+    s.seenLine = line;
+    const due = game.tick - s.lastAsk >= RULES.askEvery;
+
+    if (line === 'casting' || line === 'reeling') return s.hunter.everyTick ? 'check' : null;
     if (line === 'nibble' && changed) return 'nibble';
     if (line === 'idle' && (changed || due)) return 'idle';
     if (line === 'waiting' && changed) return from === 'casting' ? 'landed' : 'check';
-    if (due || this.hunter.everyTick) return 'check';
+    if (due || s.hunter.everyTick) return 'check';
     return null;
   }
 
-  private ask(reason: AskReason): Action {
+  private ask(s: Seat, i: number, reason: AskReason): Action {
     const game = this.game;
-    this.asks++;
-    this.lastAsk = game.tick;
-    const obs = game.observe(reason);
+    s.asks++;
+    s.lastAsk = game.tick;
+    const obs = game.observe(reason, i);
     const t0 = performance.now();
     let answer: Action | Promise<Action>;
     try {
-      answer = this.hunter.decide(obs);
+      answer = s.hunter.decide(obs);
     } catch {
-      this.errors++;
+      s.errors++;
       return WAIT;
     } finally {
       this.mainMs += performance.now() - t0;
     }
     if (!(answer instanceof Promise)) {
-      this.decisions.push({ thinkMs: performance.now() - t0, lagTicks: 0 });
+      s.decisions.push({ thinkMs: performance.now() - t0, lagTicks: 0 });
       return answer;
     }
 
     const asked: Asked = { tick: game.tick, at: t0 };
     const promise = answer.then(
       (action) => {
-        if (this.pending?.promise !== promise) return; // stopped or restarted meanwhile
-        this.pending = null;
-        this.ready = { ...asked, action, doneAt: performance.now() };
+        if (s.pending?.promise !== promise) return; // stopped or restarted meanwhile
+        s.pending = null;
+        s.ready = { ...asked, action, doneAt: performance.now() };
       },
       () => {
-        if (this.pending?.promise !== promise) return;
-        this.pending = null;
-        this.errors++;
+        if (s.pending?.promise !== promise) return;
+        s.pending = null;
+        s.errors++;
       },
     );
-    this.pending = { ...asked, promise };
+    s.pending = { ...asked, promise };
     return WAIT;
   }
 }
