@@ -10,6 +10,12 @@ explore.ipynb     step 2: poke at the environment and write encode()
 features.py       encode(), action helpers, and the heuristic's aiming (lead_for)
 clone.ipynb       step 3: behavior cloning, then export the weights to src/game/hunters/
 parity.py         checks the browser clone (clone.ts) and Python agree, decision for decision
+
+record_moments.ts records stream moments from headless games, for the chat model's training set
+teach.py          a local teacher (gemma3:12b in Ollama) writes lines for those moments
+voice.ipynb       fine-tunes SmolLM2-135M on the teacher's lines: the live page's chat model
+export_voice.py   that model -> ONNX for Transformers.js (4-bit for the GPU, 8-bit for the CPU)
+serve_voice.py    serves an export to the dev page, to try it before uploading
 requirements.txt  everything except PyTorch
 ```
 
@@ -55,3 +61,25 @@ Open `clone.ipynb` the same way and run it top to bottom (about a minute). The l
 It should report a largest feature difference of 0 and every choice the same. `npm run score` shows the clone next to the other hunters.
 
 If you change `encode()`, change `encode()` in `src/game/hunters/clone.ts` the same way, retrain, and rerun the parity check.
+
+## Train the chat model
+
+The live page's chat is a fine-tuned SmolLM2-135M. Building it takes four steps:
+
+1. **Record moments.** `npx tsx training/record_moments.ts` plays 300 headless games with each player streaming and keeps 1,500 moments (a catch, stolen bait, a cast someone disagrees with), spread evenly over who's talking and about what. The context text comes from `src/live/prompt.ts`, the same function the browser uses.
+2. **Have a teacher write lines.** With [Ollama](https://ollama.com) running `gemma3:12b` on a local GPU, `teach.py` writes three lines per moment in the speaker's voice, then a second pass (`--short`) writes quick reactions, and `--merge` combines them into `data/lines.jsonl`. About an hour of GPU time.
+3. **Fine-tune.** Run `voice.ipynb`. It caps repeated lines, trims the quick reactions so line lengths stay mixed, holds out 150 moments, and trains for about 25 minutes a pass on the CPU. It saves `training/voice-model/`.
+4. **Export and upload.** `export_voice.py` runs in its own environment, because the ONNX exporter needs older library versions than training:
+
+```bash
+py -3.12 -m venv training\.venv-export
+.\training\.venv-export\Scripts\python.exe -m pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+.\training\.venv-export\Scripts\python.exe -m pip install transformers==4.49.0 "optimum-onnx[onnxruntime]" onnx==1.17.0 onnxruntime==1.20.1 onnxconverter-common accelerate
+.\training\.venv-export\Scripts\python.exe training\export_voice.py
+```
+
+It writes `training/voice-out/<version>/`. The version is a hash of the model, so browsers can't keep serving an old one. Upload that folder to the model bucket under `voice/`, and the page picks it up from `src/live/voice-version.json`. To try an export before uploading, run `serve_voice.py` and open `/live/?voicehost=http://localhost:8787/` on the dev server.
+
+The model isn't in git: it's a build output, and over GitHub's 100 MB file limit.
+
+**Phones aren't supported.** On an iPhone, loading the model pushed the page past 2 GB and iOS closed the tab, with both the GPU and the CPU builds. Natively the 8-bit model needs about 210 MB, so the overhead is the browser runtime's.

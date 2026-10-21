@@ -58,49 +58,16 @@ const toggles = document.querySelectorAll<HTMLButtonElement>('[data-voice]');
 const mb = (n: number) => `${Math.round(n / 1e6)}`;
 let loading: string | null = null; // the status while the model downloads
 /**
- * Phones are off by default: on an iPhone the GPU path crashed the browser (memory, most likely:
- * iOS holds the weights both in memory and on the GPU, and kills the page over its limit).
- * ?phone=1 lets a phone try the CPU path (8-bit weights, held once) while that's being tested.
+ * Not on phones. On an iPhone the page climbed past 2 GB of memory loading the model, on the GPU
+ * and on the CPU alike, and iOS killed the tab. The model itself needs about 210 MB; the rest is
+ * the browser runtime around it. Phones keep the hand-written chat.
  */
 const nav = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
 const phone =
   nav.userAgentData?.mobile ?? (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820));
-const params = new URLSearchParams(location.search);
-const phoneTest = params.has('phone');
-const forceCpu = params.has('cpu'); // try the CPU path on a desktop
-const blocked = phone && !phoneTest;
-const backend: Backend = !phone && !forceCpu && 'gpu' in navigator ? { device: 'webgpu', dtype: 'q4f16' } : { device: 'wasm', dtype: 'q8', lowMemory: phone || params.has('low'), opt: params.get('opt') ?? undefined };
+// the GPU with 4-bit weights, or the CPU (WebAssembly) with 8-bit ones where there's no WebGPU
+const backend: Backend = 'gpu' in navigator ? { device: 'webgpu', dtype: 'q4f16' } : { device: 'wasm', dtype: 'q8' };
 const sizeMb = backend.device === 'webgpu' ? ModelVoice.mb : ModelVoice.mbCpu;
-
-/**
- * Breadcrumbs: each loading step is saved, with its time, as it happens. If the page dies partway,
- * the next visit shows the trail in the status line and doesn't try again on its own, so a crash
- * can't loop before anyone reads it. On a phone there's no debugger to ask.
- */
-const CRUMBS = 'fishbowl.live.model-load';
-type Trail = { backend: string; start: number; steps: [string, number][]; done?: boolean };
-let trail: Trail | null = null;
-const saveTrail = () => {
-  try {
-    localStorage.setItem(CRUMBS, JSON.stringify(trail));
-  } catch {}
-};
-const crumb = (stage: string) => {
-  if (!trail || trail.done) return; // after the first line, loading is over and nothing more is recorded
-  if (stage === 'done') trail.done = true;
-  else trail.steps.push([stage, Date.now() - trail.start]);
-  saveTrail();
-};
-/** The last try, if it never finished: "downloading the model 0.4s → setting up 9.8s → …" */
-let lastTry = '';
-try {
-  const last: Trail | null = JSON.parse(localStorage.getItem(CRUMBS) ?? 'null');
-  if (last && !last.done && last.steps?.length) {
-    const [stage, ms] = last.steps[last.steps.length - 1];
-    lastTry = `last try (${last.backend}) stopped at: ${stage} (${(ms / 1000).toFixed(1)}s)`;
-    ui.notice(`${lastTry}. trail: ${last.steps.map(([st, t]) => `${st} ${(t / 1000).toFixed(1)}s`).join(' → ')}`);
-  }
-} catch {}
 
 let failed = '';
 function drawVoice() {
@@ -109,11 +76,10 @@ function drawVoice() {
     const checked = t.dataset.voice === on;
     t.classList.toggle('on', checked);
     t.setAttribute('aria-checked', String(checked));
-    if (t.dataset.voice === 'model') t.disabled = blocked;
+    if (t.dataset.voice === 'model') t.disabled = phone;
   });
   let status: string;
-  if (blocked) status = 'the trained model needs a desktop browser for now';
-  else if (lastTry && voice === canned && !model && !loading) status = `${lastTry} · tap trained model to retry`;
+  if (phone) status = 'not on phones: it runs out of memory there';
   else if (failed) status = `the trained model couldn't load here: ${failed}`;
   else if (loading) status = loading;
   else if (voice === canned) status = model ? 'picked from a hand-written list' : `picked from a hand-written list · model is ${sizeMb} MB`;
@@ -123,11 +89,9 @@ function drawVoice() {
     status = `${sizeMb} MB · your ${model?.device === 'webgpu' ? 'gpu' : 'cpu'}${ms ? ` · ~${ms} ms a line` : ''}`;
   }
   statusLine.textContent = status;
-  // the one status that's allowed to wrap: it's read once, and on a phone it wouldn't fit
-  statusLine.classList.toggle('wrap', status.startsWith('last try'));
 }
 async function useModel() {
-  if (blocked) return drawVoice();
+  if (phone) return drawVoice();
   if (model) {
     voice = model;
     return drawVoice();
@@ -135,41 +99,18 @@ async function useModel() {
   if (loading) return;
   failed = '';
   loading = 'downloading the model…';
-  lastTry = '';
-  trail = { backend: backend.device, start: Date.now(), steps: [] };
-  crumb('starting');
   drawVoice();
-  const m = new ModelVoice(
-    backend,
-    (loaded, total) => {
-      loading = `downloading the model · ${mb(loaded)}/${total ? mb(total) : sizeMb} MB`;
-      drawVoice();
-    },
-    (stage) => {
-      crumb(stage);
-      if (stage.startsWith('downloaded')) {
-        loading = 'setting up the model…';
-        drawVoice();
-      }
-    },
-  );
+  const m = new ModelVoice(backend, (loaded, total) => {
+    loading = loaded >= total && total ? 'setting up the model…' : `downloading the model · ${mb(loaded)}/${total ? mb(total) : sizeMb} MB`;
+    drawVoice();
+  });
   try {
     await m.ready;
-    crumb('ready, writing the first line');
     model = m;
     voice = m;
     ui.notice(`trained model loaded in ${(m.loadMs / 1000).toFixed(1)}s, on the ${m.device === 'webgpu' ? 'gpu' : 'cpu'}`);
-    // the first line is the last risky step; after it, loading is done
-    const t0 = Date.now();
-    const wait = setInterval(() => {
-      if (m.times.length) {
-        crumb('done');
-        clearInterval(wait);
-      } else if (Date.now() - t0 > 60000) clearInterval(wait);
-    }, 500);
   } catch (err) {
     failed = (err as Error).message;
-    crumb(`error: ${failed}`);
   }
   loading = null;
   drawVoice();
@@ -325,8 +266,7 @@ async function boot() {
   start();
   requestAnimationFrame(frame);
   // the game first, then the model: give the stream a moment to get going
-  // not after an unfinished try: that might be a crash, and it shouldn't happen again unasked
-  if (!blocked && !lastTry) setTimeout(() => void useModel(), 1500);
+  if (!phone) setTimeout(() => void useModel(), 1500);
 }
 
 void boot();

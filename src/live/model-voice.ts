@@ -34,16 +34,11 @@ export class ModelVoice implements Voice {
   private requests = new Map<number, LineRequest>();
   private nextId = 0;
 
-  constructor(
-    backend: Backend,
-    onProgress: (loaded: number, total: number) => void,
-    onStage: (stage: string) => void = () => {},
-  ) {
+  constructor(backend: Backend, onProgress: (loaded: number, total: number) => void) {
     this.ready = new Promise((resolve, reject) => {
       this.worker.onmessage = (e: MessageEvent<FromWorker>) => {
         const m = e.data;
         if (m.type === 'progress') onProgress(m.loaded, m.total);
-        else if (m.type === 'stage') onStage(m.stage);
         else if (m.type === 'ready') {
           this.device = m.device;
           this.loadMs = m.loadMs;

@@ -82,6 +82,14 @@ The model is a small neural network that learned by watching the heuristic play,
 
 The first version had to say exactly where to cast, and it caught about 9 fish to the heuristic's 14, while matching 96% of its choices. All of the gap was aim. When two fish both looked good, it cast between them, into empty water. So the job is split: the network decides when to cast and which of the 5 nearest fish to go after, and the heuristic's aiming code drops the hook. That version catches about 14.
 
+## Live
+
+[`/live/`](https://fishbowl.jsnwng.dev/live/) is the fisherman as a stream. Whoever you pick fishes and talks in a speech bubble, and the other players watch from a side chat, each in its own voice. Their opinions on a cast are real: at every decision each viewer sees the same bowl and makes its own pick, and the chat says what it would have done.
+
+On a desktop, the chat is written by a small language model running in the browser: [SmolLM2-135M](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct), fine-tuned on about 3,000 lines written by a bigger model (Gemma 3 12B, run locally) for real moments from real games. It ships as a 118 MB ONNX file with 4-bit weights, served from object storage (Cloudflare R2), and runs in a web worker with [Transformers.js](https://github.com/huggingface/transformers.js) on WebGPU, at about 400 ms a line. Without WebGPU it falls back to the CPU with an 8-bit copy (137 MB), at about a second a line. Hand-written lines cover the download, and a switch under the chat flips between the two.
+
+**It doesn't run on phones.** On an iPhone the page climbed past 2 GB of memory while loading the model, on the GPU and on the CPU alike, and iOS closed the tab. The model itself needs about 210 MB, so the rest is the browser runtime around it. Phones get the hand-written chat. How it's trained and exported is in [`training/`](training/).
+
 ## The art
 
 There are no image files. The fish are ASCII pixel maps in [`src/sprites.ts`](src/sprites.ts): five species built from three hand-drawn shapes plus palette swaps. The tail-wag frames and left-facing versions are generated, and everything is packed into a single sprite atlas that all six renderers share. The scenery in [`src/scenery.ts`](src/scenery.ts) is painted in code as well.
@@ -115,18 +123,22 @@ src/
   main.ts       renderers page wiring
   nav.ts        the site's sections, shared by every page's header
   game/         the fisherman: headless game, rules, hunters, PixiJS view
+  live/         the stream: moments, chat director, hand-written lines, the chat model's worker
   story/        the home page's script
 index.html      the home page: a card for each section
 renderers/
   index.html    the renderer benchmark
 players/
   index.html    the fisherman game
+live/
+  index.html    the fisherman streaming, with chat
 public/story/   screenshots for the home page
+training/       Python: the clone and the chat model, trained and exported
 scripts/
   bundle-sizes.mjs   gzip size per renderer, from the Vite manifest
   score.ts           plays every hunter headless over many seeds (npm run score)
 ```
 
-Each page is its own Vite build (`vite build`, then `--mode players` and `--mode story`), so the pages don't share chunks and the benchmark's bundle sizes stay its own.
+Each page is its own Vite build (`vite build`, then `--mode players`, `--mode live` and `--mode story`), so the pages don't share chunks and the benchmark's bundle sizes stay its own.
 
 Built with Vite and TypeScript.

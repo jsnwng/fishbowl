@@ -7,9 +7,6 @@ const root = realpathSync.native(process.cwd());
 
 // Cross-origin isolation lifts performance.now() from 100µs to ~5µs resolution, which the
 // per-frame cpu/sim timings need. Everything the app loads is same-origin, so it's safe.
-// Only on the pages that time things (renderers, players). Not on /live/: there, isolation makes
-// the chat model's WebAssembly use shared memory, and an iPhone ran out of memory loading it.
-// vercel.json matches.
 const isolation = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'require-corp',
@@ -67,19 +64,17 @@ const redirect: Connect.NextHandleFunction = (req, res, next) => {
   res.setHeader('Location', `${to}${query ? `?${query}` : ''}`);
   res.end();
 };
-const isolate: Connect.NextHandleFunction = (req, res, next) => {
-  if (/^\/(renderers|players)\//.test(req.url ?? '')) for (const [k, v] of Object.entries(isolation)) res.setHeader(k, v);
-  next();
-};
 const redirects: Plugin = {
   name: 'site-redirects',
-  configureServer: (server) => void server.middlewares.use(redirect).use(isolate),
-  configurePreviewServer: (server) => void server.middlewares.use(redirect).use(isolate),
+  configureServer: (server) => void server.middlewares.use(redirect),
+  configurePreviewServer: (server) => void server.middlewares.use(redirect),
 };
 
 export default defineConfig(({ mode }) => ({
   root,
   base: './',
   plugins: [redirects],
+  server: { headers: isolation },
+  preview: { headers: isolation },
   build: builds[mode] ?? builds.production,
 }));

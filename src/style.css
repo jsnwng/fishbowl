@@ -617,6 +617,3 @@ a:hover {
   text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
 }
-.voice-status.wrap {
-  white-space: normal;
-}

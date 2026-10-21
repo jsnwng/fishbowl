@@ -1,15 +1,14 @@
 /// <reference lib="webworker" />
 // The trained chat model, off the main thread so writing a line never costs the game a frame.
 // The page sends { load } once, then { id, prompt } per line; this answers with { id, text, ms }.
-import { AutoModelForCausalLM, AutoTokenizer, TextStreamer, env, type PreTrainedModel, type PreTrainedTokenizer } from '@huggingface/transformers';
+import { AutoModelForCausalLM, AutoTokenizer, env, type PreTrainedModel, type PreTrainedTokenizer } from '@huggingface/transformers';
 import { SYSTEM } from './prompt';
 
 /** Where the model runs: the GPU with 4-bit weights, or the CPU (WebAssembly) with 8-bit ones. */
-export type Backend = { device: 'webgpu'; dtype: 'q4f16' } | { device: 'wasm'; dtype: 'q8'; lowMemory?: boolean; opt?: string };
+export type Backend = { device: 'webgpu'; dtype: 'q4f16' } | { device: 'wasm'; dtype: 'q8' };
 export type ToWorker = { type: 'load'; host: string; id: string; backend: Backend } | { type: 'line'; id: number; prompt: string };
 export type FromWorker =
   | { type: 'progress'; loaded: number; total: number }
-  | { type: 'stage'; stage: string }
   | { type: 'ready'; device: string; loadMs: number }
   | { type: 'error'; message: string }
   | { type: 'line'; id: number; text: string; ms: number };
@@ -29,7 +28,6 @@ async function load(host: string, id: string, backend: Backend) {
   env.remotePathTemplate = '{model}/';
   const files = new Map<string, { loaded: number; total: number }>();
   const progress_callback = (p: { status: string; file?: string; loaded?: number; total?: number }) => {
-    if (p.status === 'done' && p.file?.endsWith('.onnx')) post({ type: 'stage', stage: 'downloaded, setting up the model' });
     if (p.status !== 'progress' || !p.file) return;
     files.set(p.file, { loaded: p.loaded ?? 0, total: p.total ?? 0 });
     let loaded = 0;
@@ -40,20 +38,8 @@ async function load(host: string, id: string, backend: Backend) {
     }
     post({ type: 'progress', loaded, total });
   };
-  post({ type: 'stage', stage: 'loading the tokenizer' });
   tokenizer = await AutoTokenizer.from_pretrained(id);
-  post({ type: 'stage', stage: 'downloading the model' });
-  // Low memory (phones): an iPhone tab died on the first line, after loading fine. Two likely causes,
-  // both off here: threads (they need shared WebAssembly memory, which iOS has trouble growing) and
-  // prepacking (ONNX Runtime keeps a second, rearranged copy of the weights after the first run).
-  const low = backend.device === 'wasm' && backend.lowMemory;
-  if (low && env.backends.onnx.wasm) env.backends.onnx.wasm.numThreads = 1;
-  // and no browser-cache copy of the 137 MB file on top of the one being loaded
-  if (low) env.useBrowserCache = false;
-  const session_options: Record<string, unknown> = low ? { enableCpuMemArena: false, enableMemPattern: false, extra: { session: { disable_prepacking: '1' } } } : {};
-  // ?opt=disabled|basic|extended|all: how much ONNX Runtime rewrites the graph at load (testing memory)
-  if (backend.device === 'wasm' && backend.opt) session_options.graphOptimizationLevel = backend.opt;
-  model = await AutoModelForCausalLM.from_pretrained(id, { device: backend.device, dtype: backend.dtype, progress_callback, session_options } as any);
+  model = await AutoModelForCausalLM.from_pretrained(id, { device: backend.device, dtype: backend.dtype, progress_callback });
   post({ type: 'ready', device: backend.device, loadMs: performance.now() - t0 });
 }
 
@@ -65,18 +51,8 @@ async function line(id: number, prompt: string) {
     { role: 'user', content: prompt },
   ];
   const inputs = tokenizer.apply_chat_template(messages, { add_generation_prompt: true, return_dict: true }) as Record<string, any>;
-  post({ type: 'stage', stage: 'writing a line: reading the prompt' });
-  let words = 0;
-  const streamer = new TextStreamer(tokenizer, {
-    skip_prompt: true,
-    callback_function: () => {},
-    token_callback_function: () => {
-      if (words++ === 0) post({ type: 'stage', stage: 'writing a line: first word' });
-    },
-  });
   const output = (await model.generate({
     ...inputs,
-    streamer,
     max_new_tokens: 24,
     do_sample: true,
     temperature: 0.8,
@@ -85,7 +61,6 @@ async function line(id: number, prompt: string) {
   const start = inputs.input_ids.dims[1];
   const ids = Array.from(output.tolist()[0] as bigint[]).slice(start);
   const text = tokenizer.decode(ids.map(Number), { skip_special_tokens: true });
-  post({ type: 'stage', stage: 'writing a line: done' });
   post({ type: 'line', id, text, ms: performance.now() - t0 });
 }
 
