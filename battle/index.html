@@ -21,9 +21,16 @@
         </div>
         <div class="toolbar" aria-label="round">
           <button type="button" class="tool go" id="start-btn" data-act="start">▶ start</button>
+          <span class="tool-sep" aria-hidden="true"></span>
+          <span class="tool-note" id="voice-label">lines:</span>
+          <span class="tool-group" role="radiogroup" aria-labelledby="voice-label">
+            <button type="button" class="tool" role="radio" data-voice="canned">hand-written</button>
+            <button type="button" class="tool" role="radio" data-voice="model">trained model</button>
+          </span>
           <span class="end tool-note" id="record"></span>
         </div>
       </div>
+      <p class="voice-status battle-voice" id="voice-status" aria-live="polite"></p>
 
       <section class="group bowl-controls" aria-label="opponent">
         <div class="picker-head">

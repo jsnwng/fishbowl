@@ -1,6 +1,11 @@
 r"""Trained chat model -> the files Transformers.js runs in the browser.
 
     .\training\.venv-export\Scripts\python.exe training\export_voice.py [model dir]
+    .\training\.venv-export\Scripts\python.exe training\export_voice.py --battle
+
+--battle exports pt.4's opponent instead: training/battle-voice-model (train_voice.py --battle) to
+training/battle-voice-out/<version>/, pointed at by src/battle/voice-version.json, and uploaded
+under battle-voice/ in the same bucket.
 
 Default model dir: training/voice-model (what voice.ipynb saves). Writes training/voice-out/<version>/:
 config.json, the tokenizer, and onnx/model_q4f16.onnx, about 118 MB. The version is a hash of the
@@ -33,12 +38,21 @@ import onnx
 import onnxruntime as ort
 
 HERE = Path(__file__).resolve().parent
-SRC = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE / "voice-model"
+BATTLE = "--battle" in sys.argv
+paths = [a for a in sys.argv[1:] if not a.startswith("--")]
+SRC = Path(paths[0]) if paths else HERE / ("battle-voice-model" if BATTLE else "voice-model")
 WORK = HERE / "voice-export"
-VOICES = HERE / "voice-out"
+VOICES = HERE / ("battle-voice-out" if BATTLE else "voice-out")
 OUT = VOICES / "next"
+FOLDER = "battle-voice" if BATTLE else "voice"  # where it goes in the bucket
+VERSION_FILE = HERE.parent / "src" / ("battle" if BATTLE else "live") / "voice-version.json"
 BASE = "HuggingFaceTB/SmolLM2-135M-Instruct"  # the tokenizer is unchanged by fine-tuning
-SYSTEM = "You write one short chat line for a pixel-art fishing stream, in the speaker's voice."  # same as voice.ipynb
+# the system message the model was trained with: voice.ipynb, or train_voice.py --battle
+SYSTEM = (
+    "You write one short line a fisherman says to the human player fishing against them, in the fisherman's voice."
+    if BATTLE
+    else "You write one short chat line for a pixel-art fishing stream, in the speaker's voice."
+)
 
 
 def step(msg):
@@ -140,11 +154,19 @@ def greedy(path, dtype, prompt, steps=16):
     return tok.decode(out)
 
 
-probes = [
-    "speaker: random (chat)\nstreamer: heuristic\nmoment: heuristic caught a 5-pt blue tang\nrun: 12 pts, 5 caught, 1:10 left",
-    "speaker: cast and wait (streaming)\nmoment: 40s without a catch\nrun: 3 pts, 2 caught, 0:50 left",
-    "speaker: heuristic (chat)\nstreamer: model\nmoment: model reeled in nothing\nrun: 8 pts, 4 caught, 1:30 left",
-]
+probes = (
+    [
+        "speaker: heuristic (fishing against the human player)\nmoment: the human player caught a 5-pt blue tang\nscore: you 12, the human player 14, 1:10 left",
+        "speaker: model (fishing against the human player)\nmoment: you caught a 3-pt angelfish\nscore: you 9, the human player 6, 0:50 left",
+        "speaker: random (fishing against the human player)\nmoment: the round is over and the human player won\nscore: you 4, the human player 21",
+    ]
+    if BATTLE
+    else [
+        "speaker: random (chat)\nstreamer: heuristic\nmoment: heuristic caught a 5-pt blue tang\nrun: 12 pts, 5 caught, 1:10 left",
+        "speaker: cast and wait (streaming)\nmoment: 40s without a catch\nrun: 3 pts, 2 caught, 0:50 left",
+        "speaker: heuristic (chat)\nstreamer: model\nmoment: model reeled in nothing\nrun: 8 pts, 4 caught, 1:30 left",
+    ]
+)
 same = 0
 for p in probes:
     a, b, c = greedy(fp32, np.float32, p), greedy(q4f16, np.float16, p), greedy(q8, np.float32, p)
@@ -164,9 +186,11 @@ for old in VOICES.iterdir():
 shutil.copytree(OUT, VOICES / version)  # copy, not rename: a running dev server holds the folder open on Windows
 shutil.rmtree(OUT, ignore_errors=True)
 mb = round((VOICES / version / "onnx" / "model_q4f16.onnx").stat().st_size / 1e6)
-vfile = HERE.parent / "src" / "live" / "voice-version.json"
-host = json.loads(vfile.read_text()).get("host", "") if vfile.exists() else ""
+vfile = VERSION_FILE
+# the same bucket for both models
+live_vfile = HERE.parent / "src" / "live" / "voice-version.json"
+host = next((json.loads(f.read_text()).get("host", "") for f in (vfile, live_vfile) if f.exists()), "")
 mb_cpu = round((VOICES / version / "onnx" / "model_quantized.onnx").stat().st_size / 1e6)
 vfile.write_text(json.dumps({"version": version, "mb": mb, "mbCpu": mb_cpu, "host": host}) + "\n")
 print(f"\nwrote {VOICES / version}")
-print("next: upload that folder to the R2 bucket under voice/, then reload the live page")
+print(f"next: upload that folder to the R2 bucket under {FOLDER}/, then reload the {'battle' if BATTLE else 'live'} page")

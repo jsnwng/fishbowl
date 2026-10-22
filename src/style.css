@@ -129,9 +129,13 @@ a:hover {
   white-space: nowrap;
   cursor: pointer;
 }
-.tool:hover {
+.tool:hover:not(:disabled) {
   color: var(--fg);
   border-color: var(--dim);
+}
+.tool:disabled {
+  color: var(--faint);
+  cursor: default;
 }
 .tool.on {
   background: var(--fg);
@@ -164,6 +168,16 @@ a:hover {
 }
 .toolbar .end {
   margin-left: auto;
+}
+/* buttons that belong together, like a two-way switch, with no gap between them */
+.tool-group {
+  display: flex;
+  gap: 4px;
+}
+/* the battle's model status, one line under the window */
+.battle-voice {
+  width: 100%;
+  margin-top: 6px;
 }
 /* plain text at the end of a toolbar, like a battle's win/loss record */
 .tool-note {

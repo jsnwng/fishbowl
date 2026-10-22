@@ -5,10 +5,13 @@ import { Match } from '../game/match';
 import { describeHunter, mountHunterPicker } from '../game/picker';
 import { BATTLE, TICKS_PER_SECOND } from '../game/rules';
 import { GameView } from '../game/view';
+import { backend, phone } from '../live/device';
+import { ModelVoice, type VoiceModel } from '../live/model-voice';
 import { mountNav } from '../nav';
 import { Hud } from './hud';
 import { Mirrored } from './mirror';
-import { BattleDirector, BattleTracker, CannedBattleVoice, battleContext, type BattleMoment, type BattleVoice } from './talk';
+import { BATTLE_SYSTEM, BattleDirector, BattleTracker, CannedBattleVoice, battleContext, describeBattle, type BattleMoment, type BattleRequest, type BattleVoice } from './talk';
+import voiceVersion from './voice-version.json';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -58,6 +61,78 @@ function hush() {
   clearTimeout(bubbleTimer);
 }
 const director = new BattleDirector(() => voice, say);
+
+// ---- the trained model for those lines: on a desktop it loads a moment after the page does ----
+const MODEL: VoiceModel<BattleRequest> = { folder: 'battle-voice', version: voiceVersion, system: BATTLE_SYSTEM, describe: describeBattle };
+const uploaded = voiceVersion.version !== '';
+const sizeMb = backend.device === 'webgpu' ? voiceVersion.mb : voiceVersion.mbCpu;
+const voiceStatus = $<HTMLParagraphElement>('voice-status');
+const toggles = document.querySelectorAll<HTMLButtonElement>('[data-voice]');
+let model: ModelVoice<BattleRequest> | null = null;
+let loading: string | null = null;
+let failed = '';
+
+async function useModel() {
+  if (phone || !uploaded) return drawVoice();
+  if (model) {
+    voice = model;
+    return drawVoice();
+  }
+  if (loading) return;
+  failed = '';
+  loading = 'downloading the model…';
+  drawVoice();
+  const m = new ModelVoice<BattleRequest>(
+    backend,
+    (loaded, total) => {
+      const mb = (n: number) => Math.round(n / 1e6);
+      loading = loaded >= total && total ? 'setting up the model…' : `downloading the model · ${mb(loaded)}/${total ? mb(total) : sizeMb} MB`;
+      drawVoice();
+    },
+    MODEL,
+  );
+  try {
+    await m.ready;
+    model = m;
+    voice = m;
+  } catch (err) {
+    failed = (err as Error).message;
+  }
+  loading = null;
+  drawVoice();
+}
+
+function drawVoice() {
+  const on = voice === canned ? 'canned' : 'model';
+  toggles.forEach((t) => {
+    t.classList.toggle('on', t.dataset.voice === on);
+    t.setAttribute('aria-checked', String(t.dataset.voice === on));
+    if (t.dataset.voice === 'model') t.disabled = phone || !uploaded;
+  });
+  let status: string;
+  if (phone) status = 'lines are hand-written on phones: the trained model runs out of memory there';
+  else if (!uploaded) status = 'lines are hand-written for now';
+  else if (failed) status = `the trained model couldn't load here: ${failed}`;
+  else if (loading) status = loading;
+  else if (voice === canned) status = `lines picked from a hand-written list${model ? '' : ` · the model is ${sizeMb} MB`}`;
+  else {
+    const ms = model ? Math.round(model.msPerLine / 50) * 50 : 0;
+    status = `lines written by a trained model · ${sizeMb} MB · your ${model?.device === 'webgpu' ? 'gpu' : 'cpu'}${ms ? ` · ~${ms} ms a line` : ''}`;
+  }
+  voiceStatus.textContent = status;
+}
+toggles.forEach((t) =>
+  t.addEventListener('click', () => {
+    t.blur(); // so space reels instead of pressing the button again
+    if (t.dataset.voice === 'model') void useModel();
+    else {
+      voice = canned;
+      drawVoice();
+    }
+  }),
+);
+setInterval(() => model && voice === model && drawVoice(), 2000);
+drawVoice();
 const react = (moments: BattleMoment[]) => moments.forEach((mo) => director.react(mo, opponent.id, battleContext(game)));
 
 /** idle: fish swim, nobody fishes. ready: frozen on READY. play: the clock runs. over: the result is up. */
@@ -243,6 +318,8 @@ async function boot() {
   hud = new Hud(view.overlay, BATTLE.width);
   sync();
   requestAnimationFrame(frame);
+  // the game first, then the model
+  if (!phone && uploaded) setTimeout(() => void useModel(), 1500);
 }
 
 void boot();

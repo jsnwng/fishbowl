@@ -17,3 +17,6 @@ training/.venv-export/
 training/voice-model-v1/
 training/voice-onnx/
 training/voice-out/
+
+training/battle-voice-model/
+training/battle-voice-out/

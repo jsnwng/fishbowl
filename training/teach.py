@@ -15,6 +15,14 @@ The lines the voice trained on came from two passes, merged:
 
 It keeps the GPU busy while it runs (about 2-3s per moment). Stop it any time: rerunning picks
 up where it left off. At the end the model is unloaded so the GPU is free again.
+
+--battle does the same for pt.4's opponent, from training/data/battle-moments.jsonl
+(record_battle_moments.ts), into battle-lines_full.jsonl, battle-lines_short.jsonl and,
+with --merge, battle-lines.jsonl:
+
+    teach.py --battle
+    teach.py --battle --short
+    teach.py --battle --merge
 """
 
 import argparse
@@ -91,27 +99,85 @@ WORN_OUT = "oof, inefficient, nice!, oh no!, there it is, suboptimal, acceptable
 ROLES = {
     "streamer": "You are the one streaming. Say it out loud to your chat, in the first person.",
     "chat": "You are watching the stream and typing in chat, reacting to the streamer.",
+    "opponent": "You are in the other boat, fishing against a person in the same bowl, and you say it to them.",
 }
 
+# --battle: the same fishermen, but racing a person in one bowl and talking to them directly.
+BATTLE_PROMPT = """You write what a fisherman says out loud in a tiny pixel-art fishing game. Two boats share one bowl of fish: a person in one, and you in the other, both racing to catch the most points in two minutes. Each fisherman is a different kind of computer player, and talks like how it plays.
 
-def ask(moment, short=False):
+You are "{speaker}". Who you are: {persona}
+{role}
+
+What just happened (in the score, "you" is you):
+{prompt}
+
+How you talk: {style}
+
+Lines in your voice for this kind of moment:
+{examples}
+
+Write {n} new lines for this exact moment, in your voice, said to the person in the other boat, each a different shape:
+1. a very short reaction, one to three words
+2. a short line
+3. a full sentence, or a question
+
+Make them different from the examples and from each other, and stick to what just happened. Only use numbers that appear in what just happened; don't make up stats. Friendly trash talk is fine; nothing mean. Each under {max} characters. No emoji, no hashtags, no quotes, no @mentions. One line each, nothing else."""
+
+BATTLE_SHORT_PROMPT = """You write what a fisherman says out loud in a tiny pixel-art fishing game. Two boats share one bowl of fish: a person in one, and you in the other, racing for points.
+
+You are "{speaker}". Who you are: {persona}
+{role}
+How you talk: {style}
+
+What just happened (in the score, "you" is you):
+{prompt}
+
+Write {n} different very short things you'd say to the other player about this, one to three words each. For a moment like this, people say things like: {hints}. Use those or your own, in your voice. Don't use any of these, they're worn out: {avoid}. No emoji, no hashtags, no quotes. One per line, nothing else."""
+
+# The model's live-page style asked for the occasional "was that right?", and the trained voice
+# overused it. Not here.
+BATTLE_STYLES = STYLES | {
+    "model": 'eager and polite, a little nervous to be playing a person. exclamation marks, mentions the heuristic it learned from. short ones like "nice!" or "got one!"',
+}
+
+BATTLE_SHORT_HINTS = {
+    "start": "hi, good luck, lets go, ready, here we go",
+    "my_catch": "got one, mine, yes, ha, too easy",
+    "your_catch": "nice, hey, lucky, not bad, ok then",
+    "you_spooked_me": "hey, rude, my fish, really?, come on",
+    "i_spooked_you": "oops, sorry, my bad, whoops",
+    "my_stolen": "rats, nooo, missed, ugh",
+    "your_stolen": "ha, rip, too slow, unlucky",
+    "your_empty": "nothing?, empty, ha, swing and miss",
+    "lead_me": "ahead, mine now, look at that, catching up",
+    "lead_you": "hmm, not for long, ok, fine",
+    "final": "hurry, ten seconds, last call, go go",
+    "win": "gg, good game, I win, again?",
+    "lose": "gg, well played, you got me, rematch",
+    "draw": "gg, a tie, even, again?",
+}
+BATTLE_WORN_OUT = "oof, inefficient, nice!, oh no!, there it is, suboptimal, acceptable, noted!, optimal, steady"
+
+
+def ask(moment, short=False, battle=False):
+    styles = BATTLE_STYLES if battle else STYLES
     if short:
         return generate(
-            SHORT_PROMPT.format(
+            (BATTLE_SHORT_PROMPT if battle else SHORT_PROMPT).format(
                 speaker=moment["speaker"],
                 persona=moment["persona"],
-                style=STYLES[moment["speaker"]],
+                style=styles[moment["speaker"]],
                 role=ROLES[moment["role"]],
                 prompt=moment["prompt"],
                 n=PER_MOMENT,
-                hints=SHORT_HINTS[moment["slot"]],
-                avoid=WORN_OUT,
+                hints=(BATTLE_SHORT_HINTS if battle else SHORT_HINTS)[moment["slot"]],
+                avoid=BATTLE_WORN_OUT if battle else WORN_OUT,
             )
         )
-    return generate(PROMPT.format(
+    return generate((BATTLE_PROMPT if battle else PROMPT).format(
         speaker=moment["speaker"],
         persona=moment["persona"],
-        style=STYLES[moment["speaker"]],
+        style=styles[moment["speaker"]],
         role=ROLES[moment["role"]],
         prompt=moment["prompt"],
         examples="\n".join(f"- {e}" for e in moment["examples"]),
@@ -153,14 +219,15 @@ def clean(text, examples):
     return out[:PER_MOMENT]
 
 
-def merge():
+def merge(prefix=""):
     """The full pass's longer lines plus the short pass's quick reactions -> lines.jsonl."""
     read = lambda name: [json.loads(l) for l in (DATA / name).read_text(encoding="utf-8").splitlines() if l.strip()]
-    longer = [r for r in read("lines_full.jsonl") if len(r["line"].split()) > 3]
-    short = read("lines_short.jsonl")
+    longer = [r for r in read(f"{prefix}lines_full.jsonl") if len(r["line"].split()) > 3]
+    short = read(f"{prefix}lines_short.jsonl")
     rows = sorted(longer + short, key=lambda r: r["id"])
-    LINES.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
-    print(f"{len(longer)} longer lines + {len(short)} short reactions = {len(rows)} in {LINES.name}")
+    out = DATA / f"{prefix}lines.jsonl"
+    out.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    print(f"{len(longer)} longer lines + {len(short)} short reactions = {len(rows)} in {out.name}")
 
 
 def main():
@@ -171,9 +238,16 @@ def main():
     parser.add_argument("--out", type=Path, default=LINES, help="lines to write")
     parser.add_argument("--short", action="store_true", help="only very short reactions (see SHORT_PROMPT)")
     parser.add_argument("--merge", action="store_true", help="build lines.jsonl from the full and short passes")
+    parser.add_argument("--battle", action="store_true", help="the battle opponent's lines (see the top of this file)")
     args = parser.parse_args()
+    prefix = "battle-" if args.battle else ""
     if args.merge:
-        return merge()
+        return merge(prefix)
+    if args.battle:
+        if args.moments == MOMENTS:
+            args.moments = DATA / "battle-moments.jsonl"
+        if args.out == LINES:
+            args.out = DATA / f"battle-lines_{'short' if args.short else 'full'}.jsonl"
     LINES_OUT = args.out
 
     moments = [json.loads(l) for l in args.moments.read_text(encoding="utf-8").splitlines() if l.strip()]
@@ -188,7 +262,7 @@ def main():
     t0 = time.perf_counter()
     written = 0
     with LINES_OUT.open("a", encoding="utf-8") as f, ThreadPoolExecutor(args.workers) as pool:
-        for i, (m, reply) in enumerate(zip(todo, pool.map(lambda m: ask(m, args.short), todo))):
+        for i, (m, reply) in enumerate(zip(todo, pool.map(lambda m: ask(m, args.short, args.battle), todo))):
             lines = clean(reply, m["examples"])
             if args.short:
                 lines = [l for l in lines if len(l.split()) <= 3]
