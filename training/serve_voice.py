@@ -3,14 +3,20 @@ r"""Serve training/voice-out/ to the dev page, to try an export before uploading
     .\training\.venv\Scripts\python.exe training\serve_voice.py
     then open http://localhost:5173/live/?voicehost=http://localhost:8787/
 
-Files are served at /voice/<version>/..., the same paths as the bucket, with the CORS and
-cross-origin headers the page needs.
+    .\training\.venv\Scripts\python.exe training\serve_voice.py --battle
+    then open http://localhost:5173/battle/?voicehost=http://localhost:8787/
+
+Files are served at /voice/<version>/... (or /battle-voice/<version>/... with --battle), the
+same paths as the bucket, with the CORS and cross-origin headers the page needs.
 """
 
 import http.server
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent / "voice-out"
+BATTLE = "--battle" in sys.argv
+ROOT = Path(__file__).resolve().parent / ("battle-voice-out" if BATTLE else "voice-out")
+PREFIX = "/battle-voice" if BATTLE else "/voice"
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -18,7 +24,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
     def translate_path(self, path):
-        return super().translate_path(path.removeprefix("/voice"))
+        return super().translate_path(path.removeprefix(PREFIX))
 
     def end_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -32,5 +38,5 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
 
-print("serving", ROOT, "at http://localhost:8787/voice/")
+print("serving", ROOT, f"at http://localhost:8787{PREFIX}/")
 http.server.ThreadingHTTPServer(("127.0.0.1", 8787), Handler).serve_forever()

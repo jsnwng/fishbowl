@@ -17,6 +17,8 @@ teach.py          a local teacher (gemma3:12b in Ollama) writes lines for those 
 voice.ipynb       fine-tunes SmolLM2-135M on the teacher's lines: the live page's chat model
 export_voice.py   that model -> ONNX for Transformers.js (4-bit for the GPU, 8-bit for the CPU)
 serve_voice.py    serves an export to the dev page, to try it before uploading
+record_battle_moments.ts, train_voice.py
+                  the same for the battle opponent's lines (pt.4), see below
 requirements.txt  everything except PyTorch
 ```
 
@@ -95,5 +97,20 @@ py -3.12 -m venv training\.venv-export
 It writes `training/voice-out/<version>/`. The version is a hash of the model, so browsers can't keep serving an old one. Upload that folder to the model bucket under `voice/`, and the page picks it up from `src/live/voice-version.json`. To try an export before uploading, run `serve_voice.py` and open `/live/?voicehost=http://localhost:8787/` on the dev server.
 
 The model isn't in git: it's a build output, and over GitHub's 100 MB file limit.
+
+### The battle opponent's chat model
+
+The AI on the battle page talks to you with a second model, built the same way from battle moments:
+
+```bash
+npx tsx training/record_battle_moments.ts
+.	raining.venvScriptspython.exe training	each.py --battle
+.	raining.venvScriptspython.exe training	each.py --battle --short
+.	raining.venvScriptspython.exe training	each.py --battle --merge
+.	raining.venvScriptspython.exe training	rain_voice.py --battle
+.	raining.venv-exportScriptspython.exe trainingexport_voice.py --battle
+```
+
+The moments come from headless battles, every AI against every other, 1,400 of them spread over who's talking and about what. Moments that rarely happen between two AIs, like a draw or a close lead change, are topped up with made-up scores so the teacher has something to write for each. train_voice.py is voice.ipynb as a script. The export lands in `training/battle-voice-out/<version>/` and goes in the bucket under `battle-voice/`; `src/battle/voice-version.json` points the page at it.
 
 **Phones aren't supported.** On an iPhone, loading the model pushed the page past 2 GB and iOS closed the tab, with both the GPU and the CPU builds. Natively the 8-bit model needs about 210 MB, so the overhead is the browser runtime's.
