@@ -1,8 +1,8 @@
 # fishbowl
 
-An 8-bit aquarium, built in parts toward a game where you play against a model running in your browser: first the 2D renderer, then the players that fish in it and a model trained to play, then a model that talks.
+An 8-bit aquarium, built in parts toward a game where you play against a model running in your browser: first the 2D renderer, then the players that fish in it and a model trained to play, then a model that talks, and last the game itself, you against an AI in one bowl.
 
-**Live: [fishbowl.jsnwng.dev](https://fishbowl.jsnwng.dev/)**. The parts are at [`/renderers/`](https://fishbowl.jsnwng.dev/renderers/), [`/players/`](https://fishbowl.jsnwng.dev/players/) and [`/live/`](https://fishbowl.jsnwng.dev/live/).
+**Live: [fishbowl.jsnwng.dev](https://fishbowl.jsnwng.dev/)**. The parts are at [`/renderers/`](https://fishbowl.jsnwng.dev/renderers/), [`/players/`](https://fishbowl.jsnwng.dev/players/), [`/live/`](https://fishbowl.jsnwng.dev/live/) and [`/battle/`](https://fishbowl.jsnwng.dev/battle/).
 
 ![Pixel-art fish swimming over seaweed, rocks and a treasure chest](docs/bowl.png)
 
@@ -90,6 +90,16 @@ On a desktop, the chat is written by a small language model running in the brows
 
 **It doesn't run on phones.** On an iPhone the page climbed past 2 GB of memory while loading the model, on the GPU and on the CPU alike, and iOS closed the tab. The model itself needs about 210 MB, so the rest is the browser runtime around it. Phones get the hand-written chat. How it's trained and exported is in [`training/`](training/).
 
+## Battle
+
+[`/battle/`](https://fishbowl.jsnwng.dev/battle/) is the game: you and an AI in two boats on one bowl, fishing the same fish for two minutes. You pick the opponent, from random (easy) through cast and wait and the model to the heuristic (hardest). The bowl is a little bigger, 384x216, and the scoreboard across the sky is NES style. A splash scares every fish near it, so you can spook the fish swimming at the other hook, and the AI can do the same to you.
+
+The rules are the same game as the players page, with a line per fisherman. Fish drift toward the nearer fresh hook, and when one could bite either hook on the same tick, which boat is checked first takes turns. `npm run score -- --battle` plays every AI against every other from both boats; over 60 seeds an AI against itself wins about half the time from either side. The AI in the right-hand boat sees the bowl mirrored, so it always faces right, the way the model learned.
+
+The model here is retrained for the battle bowl ([`training/train_battle.py`](training/train_battle.py)): the same pick-a-fish network, taught by the heuristic in battles against every other AI, then two rounds of DAgger, where the model plays and the heuristic marks what it should have done. It also sees the other fisherman's hook and the score. Against the heuristic it scores about 26 points to 30, up from about 24 for the solo model.
+
+The AI talks to you in a bubble under its boat, in the voice it has on the live page: when either of you catches something, loses bait or spooks the other's fish, when the lead changes, and at the end. On a desktop those lines come from a second fine-tuned SmolLM2-135M, trained the same way as the live chat on battle moments; on phones, and until it loads, they're hand-written.
+
 ## The art
 
 There are no image files. The fish are ASCII pixel maps in [`src/sprites.ts`](src/sprites.ts): five species built from three hand-drawn shapes plus palette swaps. The tail-wag frames and left-facing versions are generated, and everything is packed into a single sprite atlas that all six renderers share. The scenery in [`src/scenery.ts`](src/scenery.ts) is painted in code as well.
@@ -124,6 +134,7 @@ src/
   nav.ts        the site's parts (pt.1, pt.2, …), shared by every page's header
   game/         the fisherman: headless game, rules, hunters, PixiJS view
   live/         the stream: moments, chat director, hand-written lines, the chat model's worker
+  battle/       you against an AI: the page, its scoreboard and pixel font, the mirror, what the AI says
   story/        the home page's script
 index.html      the home page: a card for each part
 renderers/
@@ -132,13 +143,15 @@ players/
   index.html    the fisherman game
 live/
   index.html    the fisherman streaming, with chat
+battle/
+  index.html    you against an AI, in one bowl
 public/story/   screenshots for the home page
-training/       Python: the clone and the chat model, trained and exported
+training/       Python: the game models and the chat models, trained and exported
 scripts/
   bundle-sizes.mjs   gzip size per renderer, from the Vite manifest
   score.ts           plays every hunter headless over many seeds (npm run score)
 ```
 
-Each page is its own Vite build (`vite build`, then `--mode players`, `--mode live` and `--mode story`), so the pages don't share chunks and the benchmark's bundle sizes stay its own.
+Each page is its own Vite build (`vite build`, then `--mode players`, `--mode live`, `--mode battle` and `--mode story`), so the pages don't share chunks and the benchmark's bundle sizes stay its own.
 
 Built with Vite and TypeScript.

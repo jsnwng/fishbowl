@@ -499,20 +499,6 @@ a:hover {
   font-weight: normal;
   font-size: 12px;
 }
-/* a part that isn't built yet: a dashed box where the screenshot goes */
-.soon-box {
-  aspect-ratio: 16 / 9;
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  outline: 1px dashed var(--faint);
-  color: var(--faint);
-}
-.page-card.soon b,
-.page-card.soon span {
-  color: var(--dim);
-}
 
 /* fisherman page */
 
