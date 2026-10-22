@@ -62,7 +62,7 @@ function hush() {
 }
 const director = new BattleDirector(() => voice, say);
 
-// ---- the trained model for those lines: on a desktop it loads a moment after the page does ----
+// ---- the trained model for the dialogue: on a desktop it loads a moment after the page does ----
 const MODEL: VoiceModel<BattleRequest> = { folder: 'battle-voice', version: voiceVersion, system: BATTLE_SYSTEM, describe: describeBattle };
 const uploaded = voiceVersion.version !== '';
 const sizeMb = backend.device === 'webgpu' ? voiceVersion.mb : voiceVersion.mbCpu;
@@ -110,14 +110,14 @@ function drawVoice() {
     if (t.dataset.voice === 'model') t.disabled = phone || !uploaded;
   });
   let status: string;
-  if (phone) status = 'lines are hand-written on phones: the trained model runs out of memory there';
-  else if (!uploaded) status = 'lines are hand-written for now';
+  if (phone) status = 'dialogue is hand-written on phones: the trained model runs out of memory there';
+  else if (!uploaded) status = 'dialogue is hand-written for now';
   else if (failed) status = `the trained model couldn't load here: ${failed}`;
   else if (loading) status = loading;
-  else if (voice === canned) status = `lines picked from a hand-written list${model ? '' : ` · the model is ${sizeMb} MB`}`;
+  else if (voice === canned) status = `dialogue picked from a hand-written list${model ? '' : ` · the model is ${sizeMb} MB`}`;
   else {
     const ms = model ? Math.round(model.msPerLine / 50) * 50 : 0;
-    status = `lines written by a trained model · ${sizeMb} MB · your ${model?.device === 'webgpu' ? 'gpu' : 'cpu'}${ms ? ` · ~${ms} ms a line` : ''}`;
+    status = `dialogue written by a trained model · ${sizeMb} MB · your ${model?.device === 'webgpu' ? 'gpu' : 'cpu'}${ms ? ` · ~${ms} ms a line` : ''}`;
   }
   voiceStatus.textContent = status;
 }
