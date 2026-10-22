@@ -134,7 +134,7 @@ What just happened (in the score, "you" is you):
 
 Write {n} different very short things you'd say to the other player about this, one to three words each. For a moment like this, people say things like: {hints}. Use those or your own, in your voice. Don't use any of these, they're worn out: {avoid}. No emoji, no hashtags, no quotes. One per line, nothing else."""
 
-# The model's live-page style asked for the occasional "was that right?", and the trained voice
+# The model's chatter-page style asked for the occasional "was that right?", and the trained voice
 # overused it. Not here.
 BATTLE_STYLES = STYLES | {
     "model": 'eager and polite, a little nervous to be playing a person. exclamation marks, mentions the heuristic it learned from. short ones like "nice!" or "got one!"',

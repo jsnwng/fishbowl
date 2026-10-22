@@ -1,13 +1,13 @@
 import type { Game } from '../game/game';
 import { TICKS_PER_SECOND } from '../game/rules';
 import type { GameEvent } from '../game/types';
-import { fishRef, type FishRef } from '../live/moments';
-import { PERSONAS } from '../live/lines';
+import { fishRef, type FishRef } from '../chatter/moments';
+import { PERSONAS } from '../chatter/lines';
 import { mulberry32 } from '../rng';
 
 /*
  * The AI talks to you while you fish against it: one line at a time, in a speech bubble over
- * its boat, in the same voice it has on the live page. This is what it reacts to, the lines it
+ * its boat, in the same voice it has on the chatter page. This is what it reacts to, the lines it
  * says without a model, and the prompt the battle's chat model is trained and run on.
  */
 

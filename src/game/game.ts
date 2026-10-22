@@ -84,7 +84,7 @@ export class Line {
  * The fishing game, headless and deterministic: same seed + same actions = same run.
  * No DOM, no Pixi, so it runs in Node for scoring and training.
  *
- * The bowl sets the size and how many fishermen there are: one on the players and live pages,
+ * The bowl sets the size and how many fishermen there are: one on the players and chatter pages,
  * two in a battle, fishing the same fish. With one, every number comes out as it always has.
  *
  * The clock only runs between start() and the end of the run. Outside it the fish keep

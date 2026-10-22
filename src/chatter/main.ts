@@ -57,7 +57,7 @@ const statusLine = $<HTMLParagraphElement>('voice-status');
 const toggles = document.querySelectorAll<HTMLButtonElement>('[data-voice]');
 const mb = (n: number) => `${Math.round(n / 1e6)}`;
 let loading: string | null = null; // the status while the model downloads
-// not on phones (src/live/device.ts says why); the GPU where there's WebGPU, else the CPU
+// not on phones (src/chatter/device.ts says why); the GPU where there's WebGPU, else the CPU
 const sizeMb = backend.device === 'webgpu' ? ModelVoice.mb : ModelVoice.mbCpu;
 
 let failed = '';

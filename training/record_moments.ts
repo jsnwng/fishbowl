@@ -1,7 +1,7 @@
 /// <reference types="node" />
 // Records what happens on a stream, for the voice's training set. Plays headless games with
 // each player as the streamer (and "you", played by the model), runs the same moment tracking
-// and shadow opinions as the live page, and writes one request per line that could be said:
+// and shadow opinions as the chatter page, and writes one request per line that could be said:
 // the streamer's own reaction, and each viewer's in chat.
 //
 //   npx tsx training/record_moments.ts [count]     -> training/data/moments.jsonl
@@ -12,9 +12,9 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { Game } from '../src/game/game';
 import { HUNTERS } from '../src/game/hunters';
 import { Match } from '../src/game/match';
-import { cannedOptions, PERSONAS, slotOf, type LineRequest, type Role } from '../src/live/lines';
-import { contextOf, MomentTracker, WatchedHunter } from '../src/live/moments';
-import { describe } from '../src/live/prompt';
+import { cannedOptions, PERSONAS, slotOf, type LineRequest, type Role } from '../src/chatter/lines';
+import { contextOf, MomentTracker, WatchedHunter } from '../src/chatter/moments';
+import { describe } from '../src/chatter/prompt';
 import { mulberry32 } from '../src/rng';
 
 const keep = Number(process.argv[2] ?? 1500);

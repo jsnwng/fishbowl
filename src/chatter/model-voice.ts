@@ -5,7 +5,7 @@ import voiceVersion from './voice-version.json';
 
 /** Which trained model to run, and how to put a request to it. */
 export interface VoiceModel<R> {
-  /** The folder in the bucket: voice/ for the live chat, battle-voice/ for the battle's opponent. */
+  /** The folder in the bucket: voice/ for the chatter page's chat, battle-voice/ for the battle's opponent. */
   folder: string;
   /** What training/export_voice.py wrote: the version, its sizes and the bucket's URL. */
   version: { version: string; mb: number; mbCpu: number; host: string };
@@ -15,7 +15,7 @@ export interface VoiceModel<R> {
   describe: (req: R) => string;
 }
 
-const LIVE: VoiceModel<LineRequest> = { folder: 'voice', version: voiceVersion, system: SYSTEM, describe };
+const CHATTER: VoiceModel<LineRequest> = { folder: 'voice', version: voiceVersion, system: SYSTEM, describe };
 
 const MAX_CHARS = 64; // two lines of the speech bubble
 
@@ -32,7 +32,7 @@ function tidy(text: string, req: { speaker: string }): string | null {
   return t;
 }
 
-/** A trained chat model, running in a worker. Starts loading when constructed. The live page's by default. */
+/** A trained chat model, running in a worker. Starts loading when constructed. The chatter page's by default. */
 export class ModelVoice<R extends { speaker: string } = LineRequest> {
   name = 'trained model';
   static readonly mb = voiceVersion.mb;
@@ -50,7 +50,7 @@ export class ModelVoice<R extends { speaker: string } = LineRequest> {
   constructor(
     backend: Backend,
     onProgress: (loaded: number, total: number) => void,
-    private model: VoiceModel<R> = LIVE as unknown as VoiceModel<R>,
+    private model: VoiceModel<R> = CHATTER as unknown as VoiceModel<R>,
   ) {
     this.ready = new Promise((resolve, reject) => {
       this.worker.onmessage = (e: MessageEvent<FromWorker>) => {

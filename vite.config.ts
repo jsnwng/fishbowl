@@ -29,13 +29,13 @@ const builds: Record<string, BuildOptions> = {
     chunkSizeWarningLimit: 2000,
     rollupOptions: { input: resolve(root, 'players/index.html') },
   },
-  // `vite build --mode live`: the fisherman streaming, with chat.
-  live: {
+  // `vite build --mode chatter`: the fisherman streaming, with chat.
+  chatter: {
     emptyOutDir: false,
     manifest: false,
-    assetsDir: 'live/assets',
+    assetsDir: 'chatter/assets',
     chunkSizeWarningLimit: 2000,
-    rollupOptions: { input: resolve(root, 'live/index.html') },
+    rollupOptions: { input: resolve(root, 'chatter/index.html') },
   },
   // `vite build --mode battle`: you against an AI, in one bowl.
   battle: {
@@ -55,14 +55,18 @@ const builds: Record<string, BuildOptions> = {
 };
 
 // Old and slash-less paths. Without these, Vite's SPA fallback would serve the story page
-// at /players and friends. vercel.json does the same for the live site.
+// at /players and friends. vercel.json does the same for the deployed site.
 const REDIRECTS: Record<string, string> = {
   '/fisherman': '/players/',
   '/fisherman/': '/players/',
   '/fisherman/index.html': '/players/',
   '/renderers': '/renderers/',
   '/players': '/players/',
-  '/live': '/live/',
+  // pt.3 was /live/ until it became chatter
+  '/live': '/chatter/',
+  '/live/': '/chatter/',
+  '/live/index.html': '/chatter/',
+  '/chatter': '/chatter/',
   '/battle': '/battle/',
 };
 const redirect: Connect.NextHandleFunction = (req, res, next) => {

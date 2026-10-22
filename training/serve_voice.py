@@ -1,7 +1,7 @@
 r"""Serve training/voice-out/ to the dev page, to try an export before uploading it to R2.
 
     .\training\.venv\Scripts\python.exe training\serve_voice.py
-    then open http://localhost:5173/live/?voicehost=http://localhost:8787/
+    then open http://localhost:5173/chatter/?voicehost=http://localhost:8787/
 
     .\training\.venv\Scripts\python.exe training\serve_voice.py --battle
     then open http://localhost:5173/battle/?voicehost=http://localhost:8787/

@@ -592,12 +592,12 @@ a:hover {
   margin-top: 4px;
 }
 
-/* live page: the bowl as a stream, chat beside it */
-.col.live {
+/* chatter page: the bowl as a stream, chat beside it */
+.col.chatter {
   width: min(980px, 100% - 32px);
 }
-.live .bowl-controls,
-.live .bench {
+.chatter .bowl-controls,
+.chatter .bench {
   max-width: 640px;
 }
 .stream {

@@ -20,16 +20,16 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 HERE = Path(__file__).resolve().parent
 NAME = "HuggingFaceTB/SmolLM2-135M-Instruct"
-LIVE_SYSTEM = "You write one short chat line for a pixel-art fishing stream, in the speaker's voice."
+CHATTER_SYSTEM = "You write one short chat line for a pixel-art fishing stream, in the speaker's voice."
 # must match BATTLE_SYSTEM in src/battle/talk.ts
 BATTLE_SYSTEM = "You write one short line a fisherman says to the human player fishing against them, in the fisherman's voice."
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--battle", action="store_true", help="the battle opponent instead of the live stream")
+parser.add_argument("--battle", action="store_true", help="the battle opponent instead of the chatter page's chat")
 args = parser.parse_args()
 DATA = HERE / "data" / ("battle-lines.jsonl" if args.battle else "lines.jsonl")
 SAVE = HERE / ("battle-voice-model" if args.battle else "voice-model")
-SYSTEM = BATTLE_SYSTEM if args.battle else LIVE_SYSTEM
+SYSTEM = BATTLE_SYSTEM if args.battle else CHATTER_SYSTEM
 SHORT_SHARE = {"opponent": 0.25} if args.battle else {"chat": 0.35, "streamer": 0.20}
 HELD_OUT = 120 if args.battle else 150
 BATCH = 16

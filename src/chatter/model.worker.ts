@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 // The trained chat model, off the main thread so writing a line never costs the game a frame.
 // The page sends { load } once, then { id, prompt } per line; this answers with { id, text, ms }.
-// The live page's chat and the battle's opponent are two models; load says which, and its
+// The chatter page's chat and the battle's opponent are two models; load says which, and its
 // system message (what it was trained with).
 import { AutoModelForCausalLM, AutoTokenizer, env, type PreTrainedModel, type PreTrainedTokenizer } from '@huggingface/transformers';
 import { SYSTEM } from './prompt';

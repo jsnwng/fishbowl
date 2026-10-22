@@ -2,7 +2,7 @@
 
 An 8-bit aquarium, built in parts toward a game where you play against a model running in your browser: first the 2D renderer, then the players that fish in it and a model trained to play, then a model that talks, and last the game itself, you against an AI in one bowl.
 
-**Live: [fishbowl.jsnwng.dev](https://fishbowl.jsnwng.dev/)**. The parts are at [`/renderers/`](https://fishbowl.jsnwng.dev/renderers/), [`/players/`](https://fishbowl.jsnwng.dev/players/), [`/live/`](https://fishbowl.jsnwng.dev/live/) and [`/battle/`](https://fishbowl.jsnwng.dev/battle/).
+**Live: [fishbowl.jsnwng.dev](https://fishbowl.jsnwng.dev/)**. The parts are at [`/renderers/`](https://fishbowl.jsnwng.dev/renderers/), [`/players/`](https://fishbowl.jsnwng.dev/players/), [`/chatter/`](https://fishbowl.jsnwng.dev/chatter/) and [`/battle/`](https://fishbowl.jsnwng.dev/battle/).
 
 ![Pixel-art fish swimming over seaweed, rocks and a treasure chest](docs/bowl.png)
 
@@ -82,9 +82,9 @@ The model is a small neural network that learned by watching the heuristic play,
 
 The first version had to say exactly where to cast, and it caught about 9 fish to the heuristic's 14, while matching 96% of its choices. All of the gap was aim. When two fish both looked good, it cast between them, into empty water. So the job is split: the network decides when to cast and which of the 5 nearest fish to go after, and the heuristic's aiming code drops the hook. That version catches about 14.
 
-## Live
+## Chatter
 
-[`/live/`](https://fishbowl.jsnwng.dev/live/) is the fisherman as a stream. Whoever you pick fishes and talks in a speech bubble, and the other players watch from a side chat, each in its own voice. Their opinions on a cast are real: at every decision each viewer sees the same bowl and makes its own pick, and the chat says what it would have done.
+[`/chatter/`](https://fishbowl.jsnwng.dev/chatter/) is the fisherman as a stream. Whoever you pick fishes and talks in a speech bubble, and the other players watch from a side chat, each in its own voice. Their opinions on a cast are real: at every decision each viewer sees the same bowl and makes its own pick, and the chat says what it would have done.
 
 On a desktop, the chat is written by a small language model running in the browser: [SmolLM2-135M](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct), fine-tuned on about 3,000 lines written by a bigger model (Gemma 3 12B, run locally) for real moments from real games. It ships as a 118 MB ONNX file with 4-bit weights, served from object storage (Cloudflare R2), and runs in a web worker with [Transformers.js](https://github.com/huggingface/transformers.js) on WebGPU, at about 400 ms a line. Without WebGPU it falls back to the CPU with an 8-bit copy (137 MB), at about a second a line. Hand-written lines cover the download, and a switch under the chat flips between the two.
 
@@ -98,7 +98,7 @@ The rules are the same game as the players page, with a line per fisherman. Fish
 
 The model here is retrained for the battle bowl ([`training/train_battle.py`](training/train_battle.py)): the same pick-a-fish network, taught by the heuristic in battles against every other AI, then two rounds of DAgger, where the model plays and the heuristic marks what it should have done. It also sees the other fisherman's hook and the score. Against the heuristic it scores about 26 points to 30, up from about 24 for the solo model.
 
-The AI talks to you in a bubble under its boat, in the voice it has on the live page: when either of you catches something, loses bait or spooks the other's fish, when the lead changes, and at the end. On a desktop those lines come from a second fine-tuned SmolLM2-135M, trained the same way as the live chat on battle moments; on phones, and until it loads, they're hand-written.
+The AI talks to you in a bubble under its boat, in the voice it has on the chatter page: when either of you catches something, loses bait or spooks the other's fish, when the lead changes, and at the end. On a desktop those lines come from a second fine-tuned SmolLM2-135M, trained the same way as the live chat on battle moments; on phones, and until it loads, they're hand-written.
 
 ## The art
 
@@ -133,7 +133,7 @@ src/
   main.ts       renderers page wiring
   nav.ts        the site's parts (pt.1, pt.2, …), shared by every page's header
   game/         the fisherman: headless game, rules, hunters, PixiJS view
-  live/         the stream: moments, chat director, hand-written lines, the chat model's worker
+  chatter/      the stream: moments, chat director, hand-written lines, the chat model's worker
   battle/       you against an AI: the page, its scoreboard and pixel font, the mirror, what the AI says
   story/        the home page's script
 index.html      the home page: a card for each part
@@ -141,7 +141,7 @@ renderers/
   index.html    the renderer benchmark
 players/
   index.html    the fisherman game
-live/
+chatter/
   index.html    the fisherman streaming, with chat
 battle/
   index.html    you against an AI, in one bowl
@@ -152,6 +152,6 @@ scripts/
   score.ts           plays every hunter headless over many seeds (npm run score)
 ```
 
-Each page is its own Vite build (`vite build`, then `--mode players`, `--mode live`, `--mode battle` and `--mode story`), so the pages don't share chunks and the benchmark's bundle sizes stay its own.
+Each page is its own Vite build (`vite build`, then `--mode players`, `--mode chatter`, `--mode battle` and `--mode story`), so the pages don't share chunks and the benchmark's bundle sizes stay its own.
 
 Built with Vite and TypeScript.

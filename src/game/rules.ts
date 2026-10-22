@@ -71,7 +71,7 @@ export interface Bowl {
 /** Where fish can swim in a bowl this tall: the same margins as the solo bowl's RULES.minY/maxY. */
 const swimRange = (height: number) => ({ minY: WATERLINE + 2, maxY: height - (HEIGHT - SAND_TOP) - CELL_H - 6 });
 
-/** The players and live pages: 320x180, one fisherman. */
+/** The players and chatter pages: 320x180, one fisherman. */
 export const SOLO: Bowl = { width: WIDTH, height: HEIGHT, minY: RULES.minY, maxY: RULES.maxY, rods: [{ x: ROD_X, y: ROD_Y, facing: 1 }] };
 
 /** pt.4: 384x216 (1.2x, still 16:9), you on the left facing right, the AI on the right facing left. */

@@ -9,7 +9,7 @@ under battle-voice/ in the same bucket.
 
 Default model dir: training/voice-model (what voice.ipynb saves). Writes training/voice-out/<version>/:
 config.json, the tokenizer, and onnx/model_q4f16.onnx, about 118 MB. The version is a hash of the
-model file, and src/live/voice-version.json tells the page which one to load. Browsers cache the
+model file, and src/chatter/voice-version.json tells the page which one to load. Browsers cache the
 model by its URL, so a new model needs a new one.
 
 Then upload that folder to the fishbowl-models R2 bucket under voice/ (voice/<version>/config.json
@@ -45,7 +45,7 @@ WORK = HERE / "voice-export"
 VOICES = HERE / ("battle-voice-out" if BATTLE else "voice-out")
 OUT = VOICES / "next"
 FOLDER = "battle-voice" if BATTLE else "voice"  # where it goes in the bucket
-VERSION_FILE = HERE.parent / "src" / ("battle" if BATTLE else "live") / "voice-version.json"
+VERSION_FILE = HERE.parent / "src" / ("battle" if BATTLE else "chatter") / "voice-version.json"
 BASE = "HuggingFaceTB/SmolLM2-135M-Instruct"  # the tokenizer is unchanged by fine-tuning
 # the system message the model was trained with: voice.ipynb, or train_voice.py --battle
 SYSTEM = (
@@ -105,7 +105,7 @@ print(f"{q4f16.stat().st_size / 1e6:.0f} MB")
 
 # 3b. q8, for the CPU (WebAssembly): 8-bit integer weights, float32 math. The q4f16 file is for
 # the GPU; on the CPU its float16 math is slow or unsupported. Transformers.js finds this one as
-# dtype "q8", by the name model_quantized.onnx. Phones use it (see src/live/main.ts).
+# dtype "q8", by the name model_quantized.onnx. Phones use it (see src/chatter/main.ts).
 step("8-bit weights for the CPU")
 from onnxruntime.quantization import QuantType, quantize_dynamic
 
@@ -188,9 +188,9 @@ shutil.rmtree(OUT, ignore_errors=True)
 mb = round((VOICES / version / "onnx" / "model_q4f16.onnx").stat().st_size / 1e6)
 vfile = VERSION_FILE
 # the same bucket for both models
-live_vfile = HERE.parent / "src" / "live" / "voice-version.json"
-host = next((json.loads(f.read_text()).get("host", "") for f in (vfile, live_vfile) if f.exists()), "")
+chatter_vfile = HERE.parent / "src" / "chatter" / "voice-version.json"
+host = next((json.loads(f.read_text()).get("host", "") for f in (vfile, chatter_vfile) if f.exists()), "")
 mb_cpu = round((VOICES / version / "onnx" / "model_quantized.onnx").stat().st_size / 1e6)
 vfile.write_text(json.dumps({"version": version, "mb": mb, "mbCpu": mb_cpu, "host": host}) + "\n")
 print(f"\nwrote {VOICES / version}")
-print(f"next: upload that folder to the R2 bucket under {FOLDER}/, then reload the {'battle' if BATTLE else 'live'} page")
+print(f"next: upload that folder to the R2 bucket under {FOLDER}/, then reload the {'battle' if BATTLE else 'chatter'} page")
