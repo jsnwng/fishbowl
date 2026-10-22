@@ -31,6 +31,19 @@ a {
 a:hover {
   color: var(--fg);
 }
+
+/* the way back to jsnwng.dev: plain text in the top-left corner, in the air above the title */
+.home-link {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  font-size: 12px;
+}
+.home-link:focus-visible {
+  outline: 1px solid var(--aqua);
+  outline-offset: 2px;
+}
+
 .busy .toolbar .tool,
 .busy .bench-link {
   pointer-events: none;
